@@ -12,8 +12,10 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
 import { GridColDef } from '@mui/x-data-grid';
 import PageHeader from '../../components/PageHeader';
@@ -24,10 +26,13 @@ import InventoryDataGrid from '../../components/InventoryDataGrid';
 import { ExpiryChip } from '../../components/expiryUtils';
 import { useInventory } from '../../store/InventoryStore';
 import { itemById, warehouseById, warehouses, categories } from '../../data/mockData';
+import type { StockType } from '../../data/types';
 import { exportToCsv } from '../../../shared/exportCsv';
 
+const stockTypes: StockType[] = ['Raw Material', 'Packaging', 'Work-in-Progress', 'Finished Goods'];
+
 interface ReserveTarget {
-  batchNumber: string;
+  itemId: string;
   warehouseId: string;
   product: string;
   availableQty: number;
@@ -59,6 +64,7 @@ export default function StockList() {
   const { stockEntries, batches, reserveStock } = useInventory();
   const [warehouse, setWarehouse] = useState('All');
   const [category, setCategory] = useState('All');
+  const [stockType, setStockType] = useState('All');
   const [stockLevel, setStockLevel] = useState('All');
   const [reserveTarget, setReserveTarget] = useState<ReserveTarget | null>(null);
   const [reserveQty, setReserveQty] = useState(0);
@@ -72,9 +78,11 @@ export default function StockList() {
           const level = s.availableQty === 0 ? 'Out of Stock' : s.availableQty <= (item?.reorderLevel ?? 0) ? 'Low Stock' : 'In Stock';
           return {
             id: s.id,
+            itemId: s.itemId,
             product: item?.name ?? '—',
             sku: item?.sku ?? '—',
             category: item?.category ?? '—',
+            stockType: item?.stockType ?? '—',
             batchNumber: s.batchNumber,
             warehouseId: s.warehouseId,
             warehouse: warehouseById(s.warehouseId)?.name ?? '—',
@@ -88,28 +96,30 @@ export default function StockList() {
         })
         .filter((r) => warehouse === 'All' || r.warehouseId === warehouse)
         .filter((r) => category === 'All' || r.category === category)
+        .filter((r) => stockType === 'All' || r.stockType === stockType)
         .filter((r) => stockLevel === 'All' || r.status === stockLevel),
-    [stockEntries, warehouse, category, stockLevel],
+    [stockEntries, warehouse, category, stockType, stockLevel],
   );
 
   type StockRow = (typeof rows)[number];
 
   const openReserve = (row: StockRow) => {
+    // FEFO reserves across the item's batches at this warehouse, so surface the total on-hand.
+    const totalAvailable = batches
+      .filter((b) => b.itemId === row.itemId && b.warehouseId === row.warehouseId)
+      .reduce((sum, b) => sum + b.availableQty, 0);
     setReserveTarget({
-      batchNumber: row.batchNumber,
+      itemId: row.itemId,
       warehouseId: row.warehouseId,
       product: row.product,
-      availableQty: row.availableQty,
+      availableQty: totalAvailable,
     });
     setReserveQty(0);
   };
 
   const confirmReserve = () => {
     if (reserveTarget && reserveQty > 0) {
-      const batch = batches.find(
-        (b) => b.batchNumber === reserveTarget.batchNumber && b.warehouseId === reserveTarget.warehouseId,
-      );
-      if (batch) reserveStock(batch.id, reserveQty);
+      reserveStock(reserveTarget.itemId, reserveTarget.warehouseId, reserveQty);
     }
     setReserveTarget(null);
   };
@@ -120,6 +130,7 @@ export default function StockList() {
       [
         { header: 'Product', accessor: (r) => r.product },
         { header: 'SKU', accessor: (r) => r.sku },
+        { header: 'Type', accessor: (r) => r.stockType },
         { header: 'Batch', accessor: (r) => r.batchNumber },
         { header: 'Warehouse', accessor: (r) => r.warehouse },
         { header: 'Location', accessor: (r) => r.bin },
@@ -141,6 +152,7 @@ export default function StockList() {
       minWidth: 200,
     },
     { field: 'sku', headerName: 'SKU', flex: 0.7, minWidth: 100 },
+    { field: 'stockType', headerName: 'Type', flex: 1, minWidth: 140 },
     { field: 'batchNumber', headerName: 'Batch', flex: 0.8, minWidth: 120 },
     { field: 'warehouse', headerName: 'Warehouse', flex: 1, minWidth: 140 },
     { field: 'bin', headerName: 'Location', flex: 1, minWidth: 150 },
@@ -198,6 +210,7 @@ export default function StockList() {
         actions={
           <>
             <Button variant="outlined" startIcon={<FileDownloadRoundedIcon />} onClick={handleExport}>Export</Button>
+            <Button variant="outlined" startIcon={<RemoveRoundedIcon />} onClick={() => navigate('/inventory/stock/out')}>Stock Out</Button>
             <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/inventory/stock/new')}>Stock In</Button>
           </>
         }
@@ -214,6 +227,12 @@ export default function StockList() {
           <MenuItem value="All">All Categories</MenuItem>
           {categories.map((c) => (
             <MenuItem key={c} value={c}>{c}</MenuItem>
+          ))}
+        </FilterSelect>
+        <FilterSelect value={stockType} onChange={(e) => setStockType(e.target.value)} sx={{ minWidth: 170 }}>
+          <MenuItem value="All">All Stock Types</MenuItem>
+          {stockTypes.map((t) => (
+            <MenuItem key={t} value={t}>{t}</MenuItem>
           ))}
         </FilterSelect>
         <FilterSelect value={stockLevel} onChange={(e) => setStockLevel(e.target.value)} sx={{ minWidth: 160 }}>
@@ -245,8 +264,8 @@ export default function StockList() {
               disabled
             />
             <TextField
-              label="Batch"
-              value={reserveTarget?.batchNumber ?? ''}
+              label="Warehouse"
+              value={reserveTarget ? (warehouseById(reserveTarget.warehouseId)?.name ?? '') : ''}
               size="small"
               fullWidth
               disabled
@@ -259,8 +278,11 @@ export default function StockList() {
               size="small"
               fullWidth
               autoFocus
-              helperText={reserveTarget ? `${reserveTarget.availableQty.toLocaleString()} available` : ''}
+              helperText={reserveTarget ? `${reserveTarget.availableQty.toLocaleString()} available across batches` : ''}
             />
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              Reserved from the earliest-expiring batches first (FEFO/FIFO per item costing method).
+            </Typography>
           </Stack>
         </DialogContent>
         <DialogActions>

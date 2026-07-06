@@ -13,6 +13,11 @@ import ListItemText from '@mui/material/ListItemText';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Divider from '@mui/material/Divider';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import Category2RoundedIcon from '@mui/icons-material/CategoryRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
@@ -31,6 +36,7 @@ import { itemById, warehouseById } from '../../data/mockData';
 const quickActions = [
   { label: 'Add Product', icon: <Inventory2RoundedIcon />, path: '/inventory/items/new' },
   { label: 'Receive Stock', icon: <ArrowDownwardRoundedIcon />, path: '/inventory/stock/new' },
+  { label: 'Issue Stock', icon: <ArrowDownwardRoundedIcon />, path: '/inventory/stock/out' },
   { label: 'Transfer Stock', icon: <SyncAltRoundedIcon />, path: '/inventory/transfers/new' },
   { label: 'Adjust Stock', icon: <WarningAmberRoundedIcon />, path: '/inventory/adjustments/new' },
   { label: 'Create Batch', icon: <Category2RoundedIcon />, path: '/inventory/batches/new' },
@@ -145,6 +151,31 @@ export default function InventoryDashboard() {
     return totalAvailable === 0;
   }).length;
 
+  const onHandOf = (itemId: string) =>
+    batches.filter((b) => b.itemId === itemId).reduce((sum, b) => sum + b.availableQty, 0);
+
+  const belowSafetyCount = items.filter((it) => {
+    const oh = onHandOf(it.id);
+    return oh > 0 && oh <= it.safetyStock;
+  }).length;
+
+  const overstockCount = items.filter((it) => {
+    const oh = onHandOf(it.id);
+    return it.maximumStock > 0 && oh >= it.maximumStock;
+  }).length;
+
+  // Real on-hand count + valuation broken down by stock type.
+  const byType = items.reduce<Record<string, { count: number; value: number; onHand: number }>>((acc, it) => {
+    const oh = onHandOf(it.id);
+    const bucket = acc[it.stockType] ?? { count: 0, value: 0, onHand: 0 };
+    bucket.count += 1;
+    bucket.onHand += oh;
+    bucket.value += oh * it.averageCost;
+    acc[it.stockType] = bucket;
+    return acc;
+  }, {});
+  const byTypeRows = Object.entries(byType).sort((a, b) => b[1].value - a[1].value);
+
   const expiring30 = batches.filter((b) => {
     const d = daysUntil(b.expiryDate);
     return d >= 0 && d <= 30;
@@ -163,7 +194,9 @@ export default function InventoryDashboard() {
     { title: 'Total Inventory Value', value: `$${Math.round(totalValue).toLocaleString()}`, icon: <Inventory2RoundedIcon />, color: 'success' as const },
     { title: 'Total Products', value: `${items.length}`, icon: <Category2RoundedIcon />, color: 'primary' as const, helper: `${items.filter((i) => i.status === 'Active').length} active` },
     { title: 'Low Stock Items', value: `${lowStockCount}`, icon: <WarningAmberRoundedIcon />, color: 'warning' as const, helper: 'Below reorder level' },
+    { title: 'Below Safety Stock', value: `${belowSafetyCount}`, icon: <WarningAmberRoundedIcon />, color: 'error' as const, helper: 'At or below safety level' },
     { title: 'Out of Stock', value: `${outOfStockCount}`, icon: <ErrorOutlineRoundedIcon />, color: 'error' as const, helper: 'Needs reordering' },
+    { title: 'Overstock Items', value: `${overstockCount}`, icon: <Inventory2RoundedIcon />, color: 'warning' as const, helper: 'At or above maximum' },
     { title: 'Expiring Within 30 Days', value: `${expiring30}`, icon: <EventBusyRoundedIcon />, color: 'error' as const, helper: 'Check Expiry Monitoring' },
     { title: 'Pending Transfers', value: `${pendingTransfers}`, icon: <SyncAltRoundedIcon />, color: 'warning' as const, helper: 'Awaiting action' },
   ];
@@ -200,6 +233,35 @@ export default function InventoryDashboard() {
               </Button>
             ))}
           </Stack>
+        </CardContent>
+      </Card>
+
+      <Card variant="outlined" sx={{ mb: 3 }}>
+        <CardContent>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography component="h2" variant="subtitle2">Inventory by Stock Type</Typography>
+            <Button size="small" onClick={() => navigate('/inventory/alerts')}>Stock Monitoring →</Button>
+          </Stack>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Stock Type</TableCell>
+                <TableCell align="right">Products</TableCell>
+                <TableCell align="right">On Hand</TableCell>
+                <TableCell align="right">Valuation</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {byTypeRows.map(([type, v]) => (
+                <TableRow key={type} hover>
+                  <TableCell sx={{ fontWeight: 500 }}>{type}</TableCell>
+                  <TableCell align="right">{v.count.toLocaleString()}</TableCell>
+                  <TableCell align="right">{v.onHand.toLocaleString()}</TableCell>
+                  <TableCell align="right">${Math.round(v.value).toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 

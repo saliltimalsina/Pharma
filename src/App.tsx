@@ -40,6 +40,9 @@ import AdjustmentForm from './inventory/pages/adjustments/AdjustmentForm';
 import AdjustmentDetail from './inventory/pages/adjustments/AdjustmentDetail';
 import ExpiryMonitoring from './inventory/pages/expiry/ExpiryMonitoring';
 import InventoryReports from './inventory/pages/reports/InventoryReports';
+import StockOutForm from './inventory/pages/stock/StockOutForm';
+import StockLedger from './inventory/pages/ledger/StockLedger';
+import StockAlerts from './inventory/pages/alerts/StockAlerts';
 import FinanceDashboard from './finance/pages/dashboard/FinanceDashboard';
 import InvoiceList from './finance/pages/invoices/InvoiceList';
 import InvoiceForm from './finance/pages/invoices/InvoiceForm';
@@ -55,6 +58,15 @@ import JournalEntryForm from './finance/pages/accounting/JournalEntryForm';
 import BankingHub from './finance/pages/banking/BankingHub';
 import TaxesHub from './finance/pages/taxes/TaxesHub';
 import FinancialReports from './finance/pages/reports/FinancialReports';
+import CreditNoteList from './finance/pages/credit-notes/CreditNoteList';
+import CreditNoteForm from './finance/pages/credit-notes/CreditNoteForm';
+import DebitNoteList from './finance/pages/debit-notes/DebitNoteList';
+import DebitNoteForm from './finance/pages/debit-notes/DebitNoteForm';
+import AdvancesList from './finance/pages/advances/AdvancesList';
+import CashBook from './finance/pages/banking/CashBook';
+import VoucherView from './finance/pages/payments/VoucherView';
+import AnalyticsHub from './finance/pages/analytics/AnalyticsHub';
+import AuditReport from './finance/pages/reports/AuditReport';
 
 function App() {
   return (
@@ -101,6 +113,7 @@ function App() {
 
                 <Route path="inventory/stock" element={<StockList />} />
                 <Route path="inventory/stock/new" element={<StockInForm />} />
+                <Route path="inventory/stock/out" element={<StockOutForm />} />
                 <Route path="inventory/stock/:id" element={<StockDetail />} />
 
                 <Route path="inventory/batches" element={<BatchList />} />
@@ -116,6 +129,8 @@ function App() {
                 <Route path="inventory/adjustments/:id" element={<AdjustmentDetail />} />
 
                 <Route path="inventory/expiry" element={<ExpiryMonitoring />} />
+                <Route path="inventory/ledger" element={<StockLedger />} />
+                <Route path="inventory/alerts" element={<StockAlerts />} />
                 <Route path="inventory/reports" element={<InventoryReports />} />
 
                 <Route path="finance" element={<FinanceDashboard />} />
@@ -130,14 +145,24 @@ function App() {
 
                 <Route path="finance/payments" element={<PaymentList />} />
                 <Route path="finance/payments/new" element={<PaymentForm />} />
+                <Route path="finance/payments/:id/voucher" element={<VoucherView />} />
                 <Route path="finance/payments/:id" element={<PaymentDetail />} />
 
                 <Route path="finance/accounting" element={<AccountingHub />} />
                 <Route path="finance/accounting/journal/new" element={<JournalEntryForm />} />
 
                 <Route path="finance/banking" element={<BankingHub />} />
+                <Route path="finance/cash-book" element={<CashBook />} />
                 <Route path="finance/taxes" element={<TaxesHub />} />
                 <Route path="finance/reports" element={<FinancialReports />} />
+                <Route path="finance/analytics" element={<AnalyticsHub />} />
+                <Route path="finance/audit" element={<AuditReport />} />
+
+                <Route path="finance/credit-notes" element={<CreditNoteList />} />
+                <Route path="finance/credit-notes/new" element={<CreditNoteForm />} />
+                <Route path="finance/debit-notes" element={<DebitNoteList />} />
+                <Route path="finance/debit-notes/new" element={<DebitNoteForm />} />
+                <Route path="finance/advances" element={<AdvancesList />} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>

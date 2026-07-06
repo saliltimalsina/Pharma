@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -11,7 +12,9 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TextField from '@mui/material/TextField';
 import Avatar from '@mui/material/Avatar';
+import Chip from '@mui/material/Chip';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -22,6 +25,7 @@ import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useProcurement } from '../../store/ProcurementStore';
+import type { Rfq, Vendor } from '../../data/types';
 
 function LabeledValue({ label, value }: { label: string; value?: string }) {
   return (
@@ -32,10 +36,98 @@ function LabeledValue({ label, value }: { label: string; value?: string }) {
   );
 }
 
+type QuoteDraft = { price: string; deliveryDays: string; paymentTerms: string; qualityRating: string };
+
+// Interactive quote capture — one editable row per invited vendor. Real entered
+// values are pushed into the store via submitQuote, which re-scores the RFQ.
+function QuotationsPanel({
+  rfq,
+  vendors,
+  onSubmit,
+}: {
+  rfq: Rfq;
+  vendors: Vendor[];
+  onSubmit: (vendorId: string, vendorName: string, draft: QuoteDraft) => void;
+}) {
+  const [drafts, setDrafts] = useState<Record<string, QuoteDraft>>(() => {
+    const initial: Record<string, QuoteDraft> = {};
+    rfq.invitedVendors.forEach((vid) => {
+      const q = rfq.quotes.find((qt) => qt.vendorId === vid && qt.submitted);
+      initial[vid] = {
+        price: q ? String(q.price) : '',
+        deliveryDays: q ? String(q.deliveryDays) : '',
+        paymentTerms: q ? q.paymentTerms : '',
+        qualityRating: q ? String(q.qualityRating) : '',
+      };
+    });
+    return initial;
+  });
+
+  const update = (vid: string, field: keyof QuoteDraft, value: string) =>
+    setDrafts((prev) => ({ ...prev, [vid]: { ...prev[vid], [field]: value } }));
+
+  if (rfq.invitedVendors.length === 0) {
+    return (
+      <Card variant="outlined">
+        <CardContent>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            No vendors invited yet — invite vendors when creating the RFQ to capture quotes.
+          </Typography>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card variant="outlined">
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Vendor</TableCell>
+            <TableCell width={120} align="right">Price ({rfq.currency})</TableCell>
+            <TableCell width={120} align="right">Delivery (days)</TableCell>
+            <TableCell width={140}>Payment Terms</TableCell>
+            <TableCell width={130} align="right">Quality (0–5)</TableCell>
+            <TableCell width={120} />
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rfq.invitedVendors.map((vid) => {
+            const v = vendors.find((vend) => vend.id === vid);
+            const d = drafts[vid] ?? { price: '', deliveryDays: '', paymentTerms: '', qualityRating: '' };
+            const submitted = rfq.quotes.some((q) => q.vendorId === vid && q.submitted);
+            const valid = d.price !== '' && d.deliveryDays !== '' && d.qualityRating !== '';
+            return (
+              <TableRow key={vid}>
+                <TableCell>
+                  <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
+                    <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>{v?.name.charAt(0)}</Avatar>
+                    {v?.name ?? vid}
+                    {submitted && <Chip size="small" color="success" label="Submitted" />}
+                  </Stack>
+                </TableCell>
+                <TableCell align="right"><TextField variant="standard" type="number" value={d.price} onChange={(e) => update(vid, 'price', e.target.value)} sx={{ width: 90 }} /></TableCell>
+                <TableCell align="right"><TextField variant="standard" type="number" value={d.deliveryDays} onChange={(e) => update(vid, 'deliveryDays', e.target.value)} sx={{ width: 90 }} /></TableCell>
+                <TableCell><TextField variant="standard" placeholder="Net 30" value={d.paymentTerms} onChange={(e) => update(vid, 'paymentTerms', e.target.value)} sx={{ width: 120 }} /></TableCell>
+                <TableCell align="right"><TextField variant="standard" type="number" value={d.qualityRating} onChange={(e) => update(vid, 'qualityRating', e.target.value)} sx={{ width: 80 }} /></TableCell>
+                <TableCell align="right">
+                  <Button size="small" variant="contained" disabled={!valid} onClick={() => onSubmit(vid, v?.name ?? vid, d)}>
+                    {submitted ? 'Update' : 'Submit'}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+}
+
 export default function RFQDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { rfqs, vendors, awardRfq } = useProcurement();
+  const { rfqs, vendors, submitQuote, awardRfq } = useProcurement();
   const rfq = rfqs.find((r) => r.id === id);
 
   if (!rfq) {
@@ -51,6 +143,17 @@ export default function RFQDetail() {
   const bestQuote = submittedQuotes.length
     ? submittedQuotes.reduce((best, q) => (q.score > best.score ? q : best), submittedQuotes[0])
     : undefined;
+
+  const handleSubmitQuote = (vendorId: string, vendorName: string, draft: QuoteDraft) => {
+    submitQuote(rfq.id, {
+      vendorId,
+      vendorName,
+      price: Number(draft.price),
+      deliveryDays: Number(draft.deliveryDays),
+      paymentTerms: draft.paymentTerms || '—',
+      qualityRating: Number(draft.qualityRating),
+    });
+  };
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -137,6 +240,10 @@ export default function RFQDetail() {
     </Card>
   );
 
+  const quotationsTab = (
+    <QuotationsPanel rfq={rfq} vendors={vendors} onSubmit={handleSubmitQuote} />
+  );
+
   const comparisonTab = (
     <Stack spacing={2}>
       <Card variant="outlined">
@@ -152,6 +259,9 @@ export default function RFQDetail() {
             </TableRow>
           </TableHead>
           <TableBody>
+            {submittedQuotes.length === 0 && (
+              <TableRow><TableCell colSpan={6} align="center" sx={{ color: 'text.secondary' }}>No quotes submitted yet — enter them in the Quotations tab</TableCell></TableRow>
+            )}
             {submittedQuotes.map((q) => (
               <TableRow
                 key={q.vendorId}
@@ -236,6 +346,7 @@ export default function RFQDetail() {
           { label: 'Overview', content: overviewTab },
           { label: 'Items', content: itemsTab },
           { label: 'Invited Vendors', content: invitedTab },
+          { label: 'Quotations', content: quotationsTab },
           { label: 'Comparison', content: comparisonTab },
           { label: 'Award History', content: awardTab },
         ]}

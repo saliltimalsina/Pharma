@@ -13,11 +13,15 @@ import StatusChip from '../../components/StatusChip';
 import InventoryDataGrid from '../../components/InventoryDataGrid';
 import { useInventory } from '../../store/InventoryStore';
 import { warehouses, categories, brands } from '../../data/mockData';
+import type { StockType } from '../../data/types';
+
+const stockTypes: StockType[] = ['Raw Material', 'Packaging', 'Work-in-Progress', 'Finished Goods'];
 
 const columns: GridColDef[] = [
   { field: 'sku', headerName: 'SKU', flex: 0.8, minWidth: 110 },
   { field: 'name', headerName: 'Product Name', flex: 1.4, minWidth: 220 },
   { field: 'category', headerName: 'Category', flex: 1, minWidth: 120 },
+  { field: 'stockType', headerName: 'Type', flex: 1, minWidth: 140 },
   { field: 'brand', headerName: 'Brand', flex: 1, minWidth: 120 },
   { field: 'uom', headerName: 'UOM', width: 80 },
   {
@@ -44,6 +48,7 @@ export default function ItemList() {
   const [warehouse, setWarehouse] = useState('All');
   const [status, setStatus] = useState('All');
   const [brand, setBrand] = useState('All');
+  const [stockType, setStockType] = useState('All');
 
   const rows = useMemo(
     () =>
@@ -51,6 +56,7 @@ export default function ItemList() {
         .filter((it) => category === 'All' || it.category === category)
         .filter((it) => status === 'All' || it.status === status)
         .filter((it) => brand === 'All' || it.brand === brand)
+        .filter((it) => stockType === 'All' || it.stockType === stockType)
         .map((it) => {
           const itemBatches = batches.filter((b) => b.itemId === it.id);
           const currentStock = itemBatches.reduce((sum, b) => sum + b.availableQty, 0);
@@ -61,6 +67,7 @@ export default function ItemList() {
             sku: it.sku,
             name: it.name,
             category: it.category,
+            stockType: it.stockType,
             brand: it.brand,
             uom: it.uom,
             currentStock,
@@ -70,7 +77,7 @@ export default function ItemList() {
           };
         })
         .filter((row) => warehouse === 'All' || row.warehouseId === warehouse),
-    [items, batches, category, warehouse, status, brand],
+    [items, batches, category, warehouse, status, brand, stockType],
   );
 
   return (
@@ -96,6 +103,12 @@ export default function ItemList() {
           <MenuItem value="All">All Warehouses</MenuItem>
           {warehouses.map((w) => (
             <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
+          ))}
+        </FilterSelect>
+        <FilterSelect value={stockType} onChange={(e) => setStockType(e.target.value)} sx={{ minWidth: 170 }}>
+          <MenuItem value="All">All Stock Types</MenuItem>
+          {stockTypes.map((t) => (
+            <MenuItem key={t} value={t}>{t}</MenuItem>
           ))}
         </FilterSelect>
         <FilterSelect value={status} onChange={(e) => setStatus(e.target.value)} sx={{ minWidth: 140 }}>

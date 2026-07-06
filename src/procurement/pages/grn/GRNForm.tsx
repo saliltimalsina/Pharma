@@ -25,7 +25,7 @@ import { useProcurement } from '../../store/ProcurementStore';
 import { useInventory } from '../../../inventory/store/InventoryStore';
 import type { StockInLine } from '../../../inventory/store/InventoryStore';
 import { warehouses as inventoryWarehouses } from '../../../inventory/data/mockData';
-import type { GrnItem, PurchaseOrder } from '../../data/types';
+import type { GrnItem, GrnInspectionResult, PurchaseOrder } from '../../data/types';
 
 const inspectionChecks = ['Packaging', 'Temperature', 'Damage', 'Quality'];
 
@@ -90,6 +90,10 @@ export default function GRNForm() {
 
   const save = (complete: boolean) => {
     const grnItems: GrnItem[] = lines.map((l) => ({ ...l }));
+    const inspection: GrnInspectionResult[] = inspectionChecks.map((check) => ({
+      check,
+      result: checks[check] === 'fail' ? 'fail' : 'pass',
+    }));
     const grnId = addGrn(
       {
         poNumber: po.poNumber,
@@ -99,6 +103,7 @@ export default function GRNForm() {
         receivedBy,
         deliveryNote,
         items: grnItems,
+        inspection,
       },
       complete,
     );

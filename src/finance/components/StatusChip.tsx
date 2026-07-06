@@ -5,6 +5,7 @@ type ChipColor = ChipProps['color'];
 const STATUS_COLOR: Record<string, ChipColor> = {
   // invoices / bills
   Draft: 'default',
+  Proforma: 'secondary',
   Sent: 'info',
   'Pending Verification': 'warning',
   Approved: 'success',
@@ -12,6 +13,8 @@ const STATUS_COLOR: Record<string, ChipColor> = {
   Paid: 'success',
   Overdue: 'error',
   Cancelled: 'default',
+  // credit / debit notes
+  Issued: 'info',
   // payments
   Completed: 'success',
   Pending: 'default',

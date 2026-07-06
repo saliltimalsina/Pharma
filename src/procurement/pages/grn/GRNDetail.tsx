@@ -6,11 +6,14 @@ import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
@@ -26,10 +29,14 @@ function LabeledValue({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function daysBetween(from: string, to: string): number {
+  return Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000);
+}
+
 export default function GRNDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { grns } = useProcurement();
+  const { grns, purchaseOrders } = useProcurement();
   const grn = grns.find((g) => g.id === id);
 
   if (!grn) {
@@ -40,6 +47,13 @@ export default function GRNDetail() {
       </Box>
     );
   }
+
+  // Delivery tracking: compare receivedDate to the matching PO's expectedDelivery.
+  const matchedPo = purchaseOrders.find((p) => p.poNumber === grn.poNumber);
+  const deliveryDelta = matchedPo
+    ? daysBetween(matchedPo.expectedDelivery, grn.receivedDate)
+    : null;
+  const onTime = deliveryDelta !== null && deliveryDelta <= 0;
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -64,6 +78,31 @@ export default function GRNDetail() {
           <CardContent>
             <Typography variant="subtitle2" gutterBottom>Status</Typography>
             <StatusChip status={grn.status} />
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>Delivery Tracking</Typography>
+              {matchedPo ? (
+                <Stack spacing={1}>
+                  <LabeledValue label="Expected Delivery" value={matchedPo.expectedDelivery} />
+                  <LabeledValue label="Actual Receipt" value={grn.receivedDate} />
+                  <Chip
+                    size="small"
+                    color={onTime ? 'success' : 'error'}
+                    label={
+                      onTime
+                        ? deliveryDelta === 0
+                          ? 'On time'
+                          : `On time (${Math.abs(deliveryDelta!)}d early)`
+                        : `Late by ${deliveryDelta}d`
+                    }
+                    sx={{ alignSelf: 'flex-start' }}
+                  />
+                </Stack>
+              ) : (
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  No matching purchase order on file
+                </Typography>
+              )}
+            </Box>
           </CardContent>
         </Card>
       </Grid>
@@ -94,6 +133,36 @@ export default function GRNDetail() {
           ))}
         </TableBody>
       </Table>
+    </Card>
+  );
+
+  const inspectionTab = (
+    <Card variant="outlined">
+      <CardContent>
+        {grn.inspection && grn.inspection.length > 0 ? (
+          <Stack spacing={1.5}>
+            {grn.inspection.map((check) => (
+              <Stack
+                key={check.check}
+                direction="row"
+                sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <Typography variant="body2">{check.check}</Typography>
+                <Chip
+                  size="small"
+                  color={check.result === 'pass' ? 'success' : 'error'}
+                  icon={check.result === 'pass' ? <CheckCircleRoundedIcon /> : <CancelRoundedIcon />}
+                  label={check.result === 'pass' ? 'Pass' : 'Fail'}
+                />
+              </Stack>
+            ))}
+          </Stack>
+        ) : (
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            No inspection results recorded for this receipt.
+          </Typography>
+        )}
+      </CardContent>
     </Card>
   );
 
@@ -132,6 +201,7 @@ export default function GRNDetail() {
         tabs={[
           { label: 'Overview', content: overviewTab },
           { label: 'Items', content: itemsTab },
+          { label: 'Inspection', content: inspectionTab },
           { label: 'Batch Details', content: batchTab },
         ]}
       />

@@ -6,6 +6,7 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import ReceiptRoundedIcon from '@mui/icons-material/ReceiptRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
@@ -94,7 +95,14 @@ export default function PaymentDetail() {
         title={payment.paymentNo}
         subtitle={payment.partyName}
         actions={
-          <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/finance/payments')}>Back</Button>
+          <>
+            <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/finance/payments')}>Back</Button>
+            {(payment.type === 'Customer Payment' || payment.type === 'Supplier Payment') && (
+              <Button variant="contained" startIcon={<ReceiptRoundedIcon />} onClick={() => navigate(`/finance/payments/${payment.id}/voucher`)}>
+                {payment.type === 'Customer Payment' ? 'Receipt Voucher' : 'Payment Voucher'}
+              </Button>
+            )}
+          </>
         }
       />
       <DetailTabs

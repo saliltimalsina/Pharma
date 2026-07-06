@@ -8,7 +8,21 @@ import type {
   JournalEntry,
   BankAccount,
   BankTransaction,
+  CreditNote,
+  DebitNote,
+  Advance,
+  AdvanceApplication,
+  FinanceEvent,
 } from './types';
+
+// Cost centres used to tag journal entries for the cost-centre analytics report.
+export const costCenters = [
+  'Sales & Distribution',
+  'Manufacturing',
+  'Warehouse',
+  'Administration',
+  'Quality Control',
+];
 
 export const customers: Customer[] = [
   {
@@ -391,6 +405,7 @@ export const journalEntries: JournalEntry[] = [
     debitAccount: 'Accounts Receivable',
     creditAccount: 'Sales Revenue',
     amount: 24500,
+    costCenter: 'Sales & Distribution',
     status: 'Posted',
   },
   {
@@ -402,6 +417,7 @@ export const journalEntries: JournalEntry[] = [
     debitAccount: 'Cost of Goods Sold',
     creditAccount: 'Accounts Payable',
     amount: 96400,
+    costCenter: 'Manufacturing',
     status: 'Posted',
   },
   {
@@ -413,6 +429,7 @@ export const journalEntries: JournalEntry[] = [
     debitAccount: 'Bank — Nepal Investment Bank',
     creditAccount: 'Accounts Receivable',
     amount: 30000,
+    costCenter: 'Sales & Distribution',
     status: 'Posted',
   },
   {
@@ -424,6 +441,7 @@ export const journalEntries: JournalEntry[] = [
     debitAccount: 'Operating Expenses',
     creditAccount: 'Bank — Standard Chartered Nepal',
     amount: 42000,
+    costCenter: 'Administration',
     status: 'Posted',
   },
 ];
@@ -440,6 +458,49 @@ export const bankTransactions: BankTransaction[] = [
   { id: 'BTX-004', bankAccountId: 'BANK-002', transactionId: 'TXN-77098', date: '2026-06-01', description: 'Vertex Fine Chemicals payment', debit: 96400, credit: 0, balance: 148300, reconciled: true },
   { id: 'BTX-005', bankAccountId: 'BANK-001', transactionId: 'TXN-88240', date: '2026-07-02', description: 'Unidentified deposit', debit: 0, credit: 1200, balance: 285800, reconciled: false },
 ];
+
+export const creditNotes: CreditNote[] = [];
+
+export const debitNotes: DebitNote[] = [];
+
+export const advances: Advance[] = [
+  {
+    id: 'ADV-001',
+    advanceNo: 'ADV-2026-001',
+    date: '2026-06-18',
+    direction: 'Customer',
+    partyName: 'CityCare Hospital',
+    method: 'Bank Transfer',
+    bank: 'Nepal Investment Bank',
+    amount: 20000,
+    allocated: 0,
+    notes: 'Advance received against upcoming bulk order',
+  },
+];
+
+export const advanceApplications: AdvanceApplication[] = [];
+
+export const financeEvents: FinanceEvent[] = [
+  { id: 'EVT-005', date: '2026-06-25', type: 'Created', entity: 'Bill', ref: 'BILL-2026-0508', by: 'Priya Rana' },
+  { id: 'EVT-004', date: '2026-06-25', type: 'Payment', entity: 'Payment', ref: 'PAY-2026-3298', by: 'Priya Rana' },
+  { id: 'EVT-003', date: '2026-06-18', type: 'Advance', entity: 'Advance', ref: 'ADV-2026-001', by: 'Anita Sharma' },
+  { id: 'EVT-002', date: '2026-06-15', type: 'Payment', entity: 'Payment', ref: 'PAY-2026-3301', by: 'Anita Sharma' },
+  { id: 'EVT-001', date: '2026-06-12', type: 'Created', entity: 'Invoice', ref: 'INV-2026-1041', by: 'Marcus Webb' },
+];
+
+// Outstanding balance of an invoice after payments and credit notes / applied advances.
+export function invoiceBalance(i: Invoice): number {
+  return i.amount - i.paid - (i.credited ?? 0);
+}
+// Outstanding balance of a supplier bill after payments and debit notes / applied advances.
+export function billBalance(b: SupplierBill): number {
+  return b.amount - b.paid - (b.credited ?? 0);
+}
+// Statuses that mean an invoice does NOT count toward accounts receivable / outstanding.
+export const NON_RECEIVABLE_STATUSES: Invoice['status'][] = ['Draft', 'Proforma', 'Paid', 'Cancelled'];
+export function countsTowardReceivable(i: Invoice): boolean {
+  return !NON_RECEIVABLE_STATUSES.includes(i.status) && invoiceBalance(i) > 0;
+}
 
 export function customerById(id: string) {
   return customers.find((c) => c.id === id);

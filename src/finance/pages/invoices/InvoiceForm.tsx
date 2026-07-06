@@ -75,7 +75,7 @@ export default function InvoiceForm() {
 
   const canSubmit = lines.some((l) => l.product.trim() !== '');
 
-  const save = (send: boolean) => {
+  const save = (status: 'Draft' | 'Sent' | 'Proforma') => {
     const id = addInvoice(
       {
         customerId,
@@ -94,7 +94,7 @@ export default function InvoiceForm() {
           vat: l.vat,
         })),
       },
-      send,
+      status,
     );
     navigate(`/finance/invoices/${id}`);
   };
@@ -237,8 +237,9 @@ export default function InvoiceForm() {
         </Grid>
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
-          <Button variant="outlined" disabled={!canSubmit} onClick={() => save(false)}>Save as Draft</Button>
-          <Button variant="contained" disabled={!canSubmit} onClick={() => save(true)}>Send Invoice</Button>
+          <Button variant="outlined" disabled={!canSubmit} onClick={() => save('Draft')}>Save as Draft</Button>
+          <Button variant="outlined" disabled={!canSubmit} onClick={() => save('Proforma')}>Save as Proforma</Button>
+          <Button variant="contained" disabled={!canSubmit} onClick={() => save('Sent')}>Send Invoice</Button>
         </Stack>
       </Stack>
     </Box>

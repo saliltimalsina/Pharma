@@ -15,6 +15,10 @@ import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useInventory } from '../../store/InventoryStore';
 import { categories, brands } from '../../data/mockData';
+import type { CostingMethod, StockType } from '../../data/types';
+
+const costingMethods: CostingMethod[] = ['FEFO', 'FIFO'];
+const stockTypes: StockType[] = ['Raw Material', 'Packaging', 'Work-in-Progress', 'Finished Goods'];
 
 const suppliers = [
   'Alpine Pharma Chemicals',
@@ -39,7 +43,12 @@ export default function ItemForm() {
 
   const [uom, setUom] = useState(uoms[0]);
   const [reorderLevel, setReorderLevel] = useState(0);
+  const [safetyStock, setSafetyStock] = useState(0);
+  const [maximumStock, setMaximumStock] = useState(0);
   const [storageCondition, setStorageCondition] = useState('Ambient, dry');
+  const [stockType, setStockType] = useState<StockType>(stockTypes[0]);
+  const [costingMethod, setCostingMethod] = useState<CostingMethod>(costingMethods[0]);
+  const [barcode, setBarcode] = useState('');
 
   const [batchTracking, setBatchTracking] = useState(true);
   const [expiryTracking, setExpiryTracking] = useState(true);
@@ -60,7 +69,12 @@ export default function ItemForm() {
       description,
       uom,
       reorderLevel,
+      safetyStock,
+      maximumStock,
       storageCondition,
+      stockType,
+      costingMethod,
+      barcode,
       batchTracking,
       expiryTracking,
       shelfLifeMonths,
@@ -127,10 +141,33 @@ export default function ItemForm() {
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
+                <FormSelectField fullWidth label="Stock Type" value={stockType} onChange={(e) => setStockType(e.target.value as StockType)}>
+                  {stockTypes.map((t) => (
+                    <MenuItem key={t} value={t}>{t}</MenuItem>
+                  ))}
+                </FormSelectField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormSelectField fullWidth label="Costing Method" value={costingMethod} onChange={(e) => setCostingMethod(e.target.value as CostingMethod)}>
+                  {costingMethods.map((m) => (
+                    <MenuItem key={m} value={m}>{m === 'FEFO' ? 'FEFO (First-Expired-First-Out)' : 'FIFO (First-In-First-Out)'}</MenuItem>
+                  ))}
+                </FormSelectField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <FormField fullWidth label="Storage Condition" value={storageCondition} onChange={(e) => setStorageCondition(e.target.value)} />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth label="Barcode / QR value" value={barcode} onChange={(e) => setBarcode(e.target.value)} placeholder="e.g. 8901072000101" />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <FormField fullWidth type="number" label="Reorder Level" value={reorderLevel} onChange={(e) => setReorderLevel(Number(e.target.value))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth type="number" label="Safety Stock" value={safetyStock} onChange={(e) => setSafetyStock(Number(e.target.value))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth type="number" label="Maximum Stock" value={maximumStock} onChange={(e) => setMaximumStock(Number(e.target.value))} />
               </Grid>
             </Grid>
           </CardContent>

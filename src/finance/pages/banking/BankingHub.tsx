@@ -11,6 +11,8 @@ import TableRow from '@mui/material/TableRow';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import Checkbox from '@mui/material/Checkbox';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import PaidRoundedIcon from '@mui/icons-material/PaidRounded';
 import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
@@ -21,7 +23,7 @@ import DetailTabs from '../../components/DetailTabs';
 import { useFinance } from '../../store/FinanceStore';
 
 export default function BankingHub() {
-  const { bankAccounts, bankTransactions, chartOfAccounts } = useFinance();
+  const { bankAccounts, bankTransactions, chartOfAccounts, toggleReconciled } = useFinance();
 
   const totalBank = bankAccounts.reduce((s, a) => s + a.balance, 0);
   const totalCash = chartOfAccounts.find((a) => a.code === '1000')?.balance ?? 0;
@@ -98,9 +100,15 @@ export default function BankingHub() {
             <List dense>
               {bankTransactions.filter((t) => t.reconciled).map((t) => (
                 <ListItem key={t.id} divider secondaryAction={<StatusChip status="Matched" />}>
+                  <ListItemIcon sx={{ minWidth: 0, mr: 1 }}>
+                    <Checkbox edge="start" checked={t.reconciled} onChange={() => toggleReconciled(t.id)} />
+                  </ListItemIcon>
                   <ListItemText primary={t.description} secondary={`${t.date} · ${t.transactionId}`} />
                 </ListItem>
               ))}
+              {bankTransactions.every((t) => !t.reconciled) && (
+                <ListItem><ListItemText primary="No matched transactions" /></ListItem>
+              )}
             </List>
           </CardContent>
         </Card>
@@ -112,6 +120,9 @@ export default function BankingHub() {
             <List dense>
               {bankTransactions.filter((t) => !t.reconciled).map((t) => (
                 <ListItem key={t.id} divider secondaryAction={<StatusChip status="Unmatched" />}>
+                  <ListItemIcon sx={{ minWidth: 0, mr: 1 }}>
+                    <Checkbox edge="start" checked={t.reconciled} onChange={() => toggleReconciled(t.id)} />
+                  </ListItemIcon>
                   <ListItemText primary={t.description} secondary={`${t.date} · ${t.transactionId}`} />
                 </ListItem>
               ))}

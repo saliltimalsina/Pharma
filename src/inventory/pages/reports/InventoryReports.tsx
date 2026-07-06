@@ -14,6 +14,7 @@ import FilterBar from '../../components/FilterBar';
 import FilterSelect from '../../components/FilterSelect';
 import DetailTabs from '../../components/DetailTabs';
 import { ExpiryChip, daysUntil, expirySeverity } from '../../components/expiryUtils';
+import { MovementChip, SignedQty } from '../../components/movementUtils';
 import { useInventory } from '../../store/InventoryStore';
 import { warehouses, itemById, warehouseById } from '../../data/mockData';
 import { exportToCsv } from '../../../shared/exportCsv';
@@ -27,8 +28,10 @@ function ExportBar({ onExport }: { onExport: () => void }) {
 }
 
 export default function InventoryReports() {
-  const { items, batches } = useInventory();
+  const { items, batches, movements } = useInventory();
   const expirySorted = [...batches].sort((a, b) => daysUntil(a.expiryDate) - daysUntil(b.expiryDate));
+  // Movement / audit views: newest first, straight off the ledger.
+  const movementsDesc = [...movements].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id.localeCompare(a.id)));
 
   const stockTab = (
     <Stack spacing={2}>
@@ -94,13 +97,16 @@ export default function InventoryReports() {
           exportToCsv(
             'movement-report',
             [
-              { header: 'Batch', accessor: (b) => b.batchNumber },
-              { header: 'Product', accessor: (b) => itemById(b.itemId)?.name ?? '' },
-              { header: 'Warehouse', accessor: (b) => warehouseById(b.warehouseId)?.name ?? '' },
-              { header: 'Received Qty', accessor: (b) => b.receivedQty },
-              { header: 'Source', accessor: (b) => b.grnNumber },
+              { header: 'Date', accessor: (m) => m.date },
+              { header: 'Type', accessor: (m) => m.type },
+              { header: 'Product', accessor: (m) => itemById(m.itemId)?.name ?? '' },
+              { header: 'Batch', accessor: (m) => m.batchNumber },
+              { header: 'Warehouse', accessor: (m) => warehouseById(m.warehouseId)?.name ?? '' },
+              { header: 'Qty', accessor: (m) => m.qty },
+              { header: 'Reference', accessor: (m) => m.reference },
+              { header: 'By', accessor: (m) => m.by },
             ],
-            batches,
+            movementsDesc,
           )
         }
       />
@@ -108,21 +114,89 @@ export default function InventoryReports() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Batch</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell>Type</TableCell>
               <TableCell>Product</TableCell>
+              <TableCell>Batch</TableCell>
               <TableCell>Warehouse</TableCell>
-              <TableCell align="right">Received Qty</TableCell>
-              <TableCell>Source</TableCell>
+              <TableCell align="right">Qty</TableCell>
+              <TableCell>Reference</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {batches.map((b) => (
-              <TableRow key={b.id} hover>
-                <TableCell sx={{ fontWeight: 500 }}>{b.batchNumber}</TableCell>
-                <TableCell>{itemById(b.itemId)?.name}</TableCell>
-                <TableCell>{warehouseById(b.warehouseId)?.name}</TableCell>
-                <TableCell align="right">{b.receivedQty.toLocaleString()}</TableCell>
-                <TableCell>{b.grnNumber}</TableCell>
+            {movementsDesc.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} sx={{ color: 'text.secondary' }}>No movements recorded yet.</TableCell>
+              </TableRow>
+            )}
+            {movementsDesc.map((m) => (
+              <TableRow key={m.id} hover>
+                <TableCell>{m.date}</TableCell>
+                <TableCell><MovementChip type={m.type} /></TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{itemById(m.itemId)?.name ?? '—'}</TableCell>
+                <TableCell>{m.batchNumber}</TableCell>
+                <TableCell>{warehouseById(m.warehouseId)?.name ?? m.warehouseId}</TableCell>
+                <TableCell align="right"><SignedQty qty={m.qty} /></TableCell>
+                <TableCell>{m.reference}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+    </Stack>
+  );
+
+  const auditTab = (
+    <Stack spacing={2}>
+      <ExportBar
+        onExport={() =>
+          exportToCsv(
+            'audit-trail',
+            [
+              { header: 'Ref', accessor: (m) => m.id },
+              { header: 'Date', accessor: (m) => m.date },
+              { header: 'Action', accessor: (m) => m.type },
+              { header: 'Product', accessor: (m) => itemById(m.itemId)?.name ?? '' },
+              { header: 'Batch', accessor: (m) => m.batchNumber },
+              { header: 'Warehouse', accessor: (m) => warehouseById(m.warehouseId)?.name ?? '' },
+              { header: 'Qty', accessor: (m) => m.qty },
+              { header: 'Reference', accessor: (m) => m.reference },
+              { header: 'By', accessor: (m) => m.by },
+            ],
+            movementsDesc,
+          )
+        }
+      />
+      <Card variant="outlined">
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Ref</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell>Action</TableCell>
+              <TableCell>Product · Batch</TableCell>
+              <TableCell>Warehouse</TableCell>
+              <TableCell align="right">Qty</TableCell>
+              <TableCell>Reference</TableCell>
+              <TableCell>By</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {movementsDesc.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} sx={{ color: 'text.secondary' }}>No audit records yet.</TableCell>
+              </TableRow>
+            )}
+            {movementsDesc.map((m) => (
+              <TableRow key={m.id} hover>
+                <TableCell sx={{ fontFamily: 'monospace' }}>{m.id}</TableCell>
+                <TableCell>{m.date}</TableCell>
+                <TableCell><MovementChip type={m.type} /></TableCell>
+                <TableCell>{(itemById(m.itemId)?.name ?? '—') + ' · ' + m.batchNumber}</TableCell>
+                <TableCell>{warehouseById(m.warehouseId)?.name ?? m.warehouseId}</TableCell>
+                <TableCell align="right"><SignedQty qty={m.qty} /></TableCell>
+                <TableCell>{m.reference}</TableCell>
+                <TableCell>{m.by || '—'}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -238,6 +312,7 @@ export default function InventoryReports() {
         tabs={[
           { label: 'Stock Reports', content: stockTab },
           { label: 'Movement Reports', content: movementTab },
+          { label: 'Audit Trail', content: auditTab },
           { label: 'Batch Reports', content: batchTab },
           { label: 'Expiry Reports', content: expiryTab },
         ]}

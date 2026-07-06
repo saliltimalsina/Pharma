@@ -13,10 +13,10 @@ import FilterSelect from '../../components/FilterSelect';
 import StatusChip from '../../components/StatusChip';
 import FinanceDataGrid from '../../components/FinanceDataGrid';
 import { useFinance } from '../../store/FinanceStore';
-import { customers, customerById } from '../../data/mockData';
+import { customers, customerById, invoiceBalance } from '../../data/mockData';
 import type { InvoiceStatus } from '../../data/types';
 
-const statuses: InvoiceStatus[] = ['Draft', 'Sent', 'Partially Paid', 'Paid', 'Overdue', 'Cancelled'];
+const statuses: InvoiceStatus[] = ['Draft', 'Proforma', 'Sent', 'Partially Paid', 'Paid', 'Overdue', 'Cancelled'];
 
 const columns: GridColDef[] = [
   { field: 'invoiceNo', headerName: 'Invoice No.', flex: 1, minWidth: 150 },
@@ -77,7 +77,7 @@ export default function InvoiceList() {
           dueDate: i.dueDate || '—',
           amount: i.amount,
           paid: i.paid,
-          balance: i.amount - i.paid,
+          balance: invoiceBalance(i),
           status: i.status,
         })),
     [invoices, customer, status, search],

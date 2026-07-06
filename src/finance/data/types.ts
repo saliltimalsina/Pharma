@@ -1,4 +1,4 @@
-export type InvoiceStatus = 'Draft' | 'Sent' | 'Partially Paid' | 'Paid' | 'Overdue' | 'Cancelled';
+export type InvoiceStatus = 'Draft' | 'Proforma' | 'Sent' | 'Partially Paid' | 'Paid' | 'Overdue' | 'Cancelled';
 export type BillStatus =
   | 'Draft'
   | 'Pending Verification'
@@ -42,6 +42,8 @@ export interface Invoice {
   status: InvoiceStatus;
   amount: number;
   paid: number;
+  // Amount neutralised by credit notes / applied customer advances. Reduces outstanding.
+  credited?: number;
   lines: InvoiceLine[];
 }
 
@@ -69,6 +71,8 @@ export interface SupplierBill {
   grnMatch: boolean;
   invoiceMatch: boolean;
   difference: number;
+  // Amount neutralised by debit notes / applied supplier advances. Reduces outstanding.
+  credited?: number;
   lines: BillLine[];
 }
 
@@ -107,6 +111,7 @@ export interface JournalEntry {
   debitAccount: string;
   creditAccount: string;
   amount: number;
+  costCenter?: string;
   status: 'Draft' | 'Posted';
 }
 
@@ -129,4 +134,65 @@ export interface BankTransaction {
   credit: number;
   balance: number;
   reconciled: boolean;
+}
+
+// A customer credit note reduces the outstanding balance of a target invoice
+// and posts the reverse of the original sale to the ledger (AR down, Revenue down).
+export interface CreditNote {
+  id: string;
+  creditNoteNo: string;
+  date: string;
+  customerId: string;
+  invoiceNo: string;
+  reason: string;
+  amount: number;
+  status: 'Issued';
+}
+
+// A supplier debit note reduces the outstanding balance of a target bill
+// and posts the reverse of the original purchase accrual (AP down, COGS down).
+export interface DebitNote {
+  id: string;
+  debitNoteNo: string;
+  date: string;
+  vendorId: string;
+  vendorName: string;
+  billNo: string;
+  reason: string;
+  amount: number;
+  status: 'Issued';
+}
+
+// An advance is an unallocated credit held for a party until applied against a document.
+export interface Advance {
+  id: string;
+  advanceNo: string;
+  date: string;
+  direction: 'Customer' | 'Supplier';
+  partyName: string;
+  method: PaymentMethod;
+  bank: string;
+  amount: number;
+  allocated: number;
+  notes: string;
+}
+
+// A record of an advance being applied against an invoice or bill.
+export interface AdvanceApplication {
+  id: string;
+  advanceId: string;
+  advanceNo: string;
+  date: string;
+  targetRef: string;
+  amount: number;
+}
+
+// Immutable audit-trail entry appended by every create / approve / pay / post action.
+export interface FinanceEvent {
+  id: string;
+  date: string;
+  type: string;
+  entity: string;
+  ref: string;
+  by: string;
 }

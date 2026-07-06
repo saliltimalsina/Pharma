@@ -13,22 +13,29 @@ import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useFinance } from '../../store/FinanceStore';
-import { customerById } from '../../data/mockData';
+import { customers, customerById, invoiceBalance, billBalance } from '../../data/mockData';
+import { vendors } from '../../../procurement/data/mockData';
 import type { PaymentMethod, PaymentType } from '../../data/types';
 
-const types: PaymentType[] = ['Customer Payment', 'Supplier Payment'];
+const types: PaymentType[] = ['Customer Payment', 'Supplier Payment', 'Advance Payment'];
 const methods: PaymentMethod[] = ['Cash', 'Bank Transfer', 'Cheque', 'Credit Card', 'Online Payment', 'Mobile Wallet'];
 const banks = ['Nepal Investment Bank', 'Standard Chartered Nepal', '—'];
 
 export default function PaymentForm() {
   const navigate = useNavigate();
-  const { invoices, supplierBills, addPayment } = useFinance();
+  const { invoices, supplierBills, addPayment, addAdvance } = useFinance();
 
   const [type, setType] = useState<PaymentType>('Customer Payment');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
-  const openInvoices = useMemo(() => invoices.filter((i) => i.amount - i.paid > 0 && i.status !== 'Draft'), [invoices]);
-  const openBills = useMemo(() => supplierBills.filter((b) => b.amount - b.paid > 0 && b.status !== 'Draft'), [supplierBills]);
+  const openInvoices = useMemo(
+    () => invoices.filter((i) => invoiceBalance(i) > 0 && !['Draft', 'Proforma', 'Cancelled'].includes(i.status)),
+    [invoices],
+  );
+  const openBills = useMemo(
+    () => supplierBills.filter((b) => billBalance(b) > 0 && b.status !== 'Draft' && b.status !== 'Cancelled'),
+    [supplierBills],
+  );
 
   const [invoiceRef, setInvoiceRef] = useState(openInvoices[0]?.invoiceNo ?? '');
   const [billRef, setBillRef] = useState(openBills[0]?.billNo ?? '');
@@ -38,20 +45,45 @@ export default function PaymentForm() {
   const [transactionId, setTransactionId] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Advance-specific fields.
+  const [advanceDirection, setAdvanceDirection] = useState<'Customer' | 'Supplier'>('Customer');
+  const [advanceCustomerId, setAdvanceCustomerId] = useState(customers[0].id);
+  const [advanceVendorId, setAdvanceVendorId] = useState(vendors[0].id);
+
   const isCustomer = type === 'Customer Payment';
+  const isAdvance = type === 'Advance Payment';
   const selectedInvoice = openInvoices.find((i) => i.invoiceNo === invoiceRef);
   const selectedBill = openBills.find((b) => b.billNo === billRef);
   const partyName = isCustomer
     ? (selectedInvoice ? customerById(selectedInvoice.customerId)?.name : '') ?? ''
     : selectedBill?.vendorName ?? '';
   const outstandingBalance = isCustomer
-    ? (selectedInvoice ? selectedInvoice.amount - selectedInvoice.paid : 0)
-    : (selectedBill ? selectedBill.amount - selectedBill.paid : 0);
+    ? (selectedInvoice ? invoiceBalance(selectedInvoice) : 0)
+    : (selectedBill ? billBalance(selectedBill) : 0);
   const remainingBalance = outstandingBalance - amount;
 
-  const canSubmit = amount > 0 && (isCustomer ? !!selectedInvoice : !!selectedBill);
+  const advancePartyName = advanceDirection === 'Customer'
+    ? customerById(advanceCustomerId)?.name ?? ''
+    : vendors.find((v) => v.id === advanceVendorId)?.name ?? '';
+
+  const canSubmit = isAdvance
+    ? amount > 0 && advancePartyName !== ''
+    : amount > 0 && (isCustomer ? !!selectedInvoice : !!selectedBill);
 
   const handleSubmit = () => {
+    if (isAdvance) {
+      addAdvance({
+        date,
+        direction: advanceDirection,
+        partyName: advancePartyName,
+        method,
+        bank,
+        amount,
+        notes,
+      });
+      navigate('/finance/advances');
+      return;
+    }
     const id = addPayment({
       date,
       type,
@@ -72,7 +104,7 @@ export default function PaymentForm() {
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1200px' } }}>
       <PageHeader
         title="Record Payment"
-        subtitle="Allocate an incoming or outgoing payment against an open invoice or bill"
+        subtitle="Allocate an incoming or outgoing payment, or bank an unallocated advance"
         actions={<Button onClick={() => navigate('/finance/payments')}>Cancel</Button>}
       />
 
@@ -98,40 +130,74 @@ export default function PaymentForm() {
           </CardContent>
         </Card>
 
-        <Card variant="outlined">
-          <CardHeader title="Allocation" slotProps={{ title: { variant: 'subtitle2' } }} />
-          <CardContent sx={{ pt: 0 }}>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                {isCustomer ? (
-                  <FormSelectField fullWidth label="Invoice" value={invoiceRef} onChange={(e) => setInvoiceRef(e.target.value)}>
-                    {openInvoices.map((i) => (
-                      <MenuItem key={i.id} value={i.invoiceNo}>{i.invoiceNo} — {customerById(i.customerId)?.name}</MenuItem>
-                    ))}
+        {isAdvance ? (
+          <Card variant="outlined">
+            <CardHeader title="Advance" slotProps={{ title: { variant: 'subtitle2' } }} />
+            <CardContent sx={{ pt: 0 }}>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <FormSelectField fullWidth label="Direction" value={advanceDirection} onChange={(e) => setAdvanceDirection(e.target.value as 'Customer' | 'Supplier')}>
+                    <MenuItem value="Customer">From Customer (received)</MenuItem>
+                    <MenuItem value="Supplier">To Supplier (paid)</MenuItem>
                   </FormSelectField>
-                ) : (
-                  <FormSelectField fullWidth label="Bill" value={billRef} onChange={(e) => setBillRef(e.target.value)}>
-                    {openBills.map((b) => (
-                      <MenuItem key={b.id} value={b.billNo}>{b.billNo} — {b.vendorName}</MenuItem>
-                    ))}
-                  </FormSelectField>
-                )}
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  {advanceDirection === 'Customer' ? (
+                    <FormSelectField fullWidth label="Customer" value={advanceCustomerId} onChange={(e) => setAdvanceCustomerId(e.target.value)}>
+                      {customers.map((c) => (
+                        <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                      ))}
+                    </FormSelectField>
+                  ) : (
+                    <FormSelectField fullWidth label="Supplier" value={advanceVendorId} onChange={(e) => setAdvanceVendorId(e.target.value)}>
+                      {vendors.map((v) => (
+                        <MenuItem key={v.id} value={v.id}>{v.name}</MenuItem>
+                      ))}
+                    </FormSelectField>
+                  )}
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <FormField fullWidth type="number" label="Advance Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                </Grid>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormField fullWidth label={isCustomer ? 'Customer' : 'Supplier'} value={partyName} disabled />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card variant="outlined">
+            <CardHeader title="Allocation" slotProps={{ title: { variant: 'subtitle2' } }} />
+            <CardContent sx={{ pt: 0 }}>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  {isCustomer ? (
+                    <FormSelectField fullWidth label="Invoice" value={invoiceRef} onChange={(e) => setInvoiceRef(e.target.value)}>
+                      {openInvoices.map((i) => (
+                        <MenuItem key={i.id} value={i.invoiceNo}>{i.invoiceNo} — {customerById(i.customerId)?.name}</MenuItem>
+                      ))}
+                    </FormSelectField>
+                  ) : (
+                    <FormSelectField fullWidth label="Bill" value={billRef} onChange={(e) => setBillRef(e.target.value)}>
+                      {openBills.map((b) => (
+                        <MenuItem key={b.id} value={b.billNo}>{b.billNo} — {b.vendorName}</MenuItem>
+                      ))}
+                    </FormSelectField>
+                  )}
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <FormField fullWidth label={isCustomer ? 'Customer' : 'Supplier'} value={partyName} disabled />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <FormField fullWidth label="Outstanding Balance" value={`$${outstandingBalance.toFixed(2)}`} disabled />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <FormField fullWidth type="number" label="Paid Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <FormField fullWidth label="Remaining Balance" value={`$${remainingBalance.toFixed(2)}`} disabled />
+                </Grid>
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth label="Outstanding Balance" value={`$${outstandingBalance.toFixed(2)}`} disabled />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth type="number" label="Paid Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth label="Remaining Balance" value={`$${remainingBalance.toFixed(2)}`} disabled />
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         <Card variant="outlined">
           <CardHeader title="Bank Details" slotProps={{ title: { variant: 'subtitle2' } }} />
@@ -152,7 +218,7 @@ export default function PaymentForm() {
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth label="Transaction ID" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} />
+                <FormField fullWidth label="Transaction ID" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} disabled={isAdvance} />
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <FormField fullWidth multiline minRows={2} label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -163,13 +229,17 @@ export default function PaymentForm() {
 
         {!canSubmit && (
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Enter a paid amount greater than zero against an open {isCustomer ? 'invoice' : 'bill'} to continue.
+            {isAdvance
+              ? 'Enter an advance amount greater than zero and choose a party to continue.'
+              : `Enter a paid amount greater than zero against an open ${isCustomer ? 'invoice' : 'bill'} to continue.`}
           </Typography>
         )}
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
           <Button variant="outlined" onClick={() => navigate('/finance/payments')}>Cancel</Button>
-          <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>Record Payment</Button>
+          <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>
+            {isAdvance ? 'Record Advance' : 'Record Payment'}
+          </Button>
         </Stack>
       </Stack>
     </Box>

@@ -14,10 +14,12 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useFinance } from '../../store/FinanceStore';
+import { billBalance } from '../../data/mockData';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -31,7 +33,7 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
 export default function BillDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { supplierBills, approveBill, payments } = useFinance();
+  const { supplierBills, approveBill, payments, debitNotes } = useFinance();
   const bill = supplierBills.find((b) => b.id === id);
 
   if (!bill) {
@@ -43,8 +45,10 @@ export default function BillDetail() {
     );
   }
 
-  const balance = bill.amount - bill.paid;
+  const credited = bill.credited ?? 0;
+  const balance = billBalance(bill);
   const relatedPayments = payments.filter((p) => p.invoiceOrBillRef === bill.billNo);
+  const relatedDebitNotes = debitNotes.filter((n) => n.billNo === bill.billNo);
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -71,6 +75,7 @@ export default function BillDetail() {
             <Stack sx={{ mt: 2, gap: 1.5 }}>
               <LabeledValue label="Amount" value={`$${bill.amount.toLocaleString()}`} />
               <LabeledValue label="Paid" value={`$${bill.paid.toLocaleString()}`} />
+              {credited > 0 && <LabeledValue label="Debited" value={`$${credited.toLocaleString()}`} />}
               <LabeledValue label="Balance" value={`$${balance.toLocaleString()}`} />
             </Stack>
           </CardContent>
@@ -142,6 +147,36 @@ export default function BillDetail() {
     </Card>
   );
 
+  const debitNotesTab = (
+    <Card variant="outlined">
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Debit Note No.</TableCell>
+            <TableCell>Date</TableCell>
+            <TableCell>Reason</TableCell>
+            <TableCell align="right">Amount</TableCell>
+            <TableCell>Status</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {relatedDebitNotes.length === 0 && (
+            <TableRow><TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>No debit notes issued</TableCell></TableRow>
+          )}
+          {relatedDebitNotes.map((n) => (
+            <TableRow key={n.id} hover>
+              <TableCell sx={{ fontWeight: 500 }}>{n.debitNoteNo}</TableCell>
+              <TableCell>{n.date}</TableCell>
+              <TableCell>{n.reason || '—'}</TableCell>
+              <TableCell align="right">${n.amount.toLocaleString()}</TableCell>
+              <TableCell><StatusChip status={n.status} /></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
       <PageHeader
@@ -156,7 +191,12 @@ export default function BillDetail() {
               </Button>
             )}
             {balance > 0 && ['Approved', 'Partially Paid'].includes(bill.status) && (
-              <Button variant="contained" onClick={() => navigate('/finance/payments/new')}>Pay Bill</Button>
+              <>
+                <Button variant="outlined" startIcon={<ReceiptLongRoundedIcon />} onClick={() => navigate(`/finance/debit-notes/new?bill=${bill.billNo}`)}>
+                  Create Debit Note
+                </Button>
+                <Button variant="contained" onClick={() => navigate('/finance/payments/new')}>Pay Bill</Button>
+              </>
             )}
           </>
         }
@@ -166,6 +206,7 @@ export default function BillDetail() {
           { label: 'Overview', content: overviewTab },
           { label: 'Purchase Details', content: purchaseDetailsTab },
           { label: 'Payments', content: paymentsTab },
+          { label: 'Debit Notes', content: debitNotesTab },
         ]}
       />
     </Box>

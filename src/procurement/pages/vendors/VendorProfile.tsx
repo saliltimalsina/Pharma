@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -8,6 +9,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
+import Rating from '@mui/material/Rating';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -17,12 +19,20 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
+import IconButton from '@mui/material/IconButton';
+import MenuItem from '@mui/material/MenuItem';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import PageHeader from '../../components/PageHeader';
+import FormField from '../../components/FormField';
+import FormSelectField from '../../components/FormSelectField';
 import { useProcurement } from '../../store/ProcurementStore';
+import { vendorPerformance } from '../../data/vendorPerformance';
+import type { Vendor, VendorDoc } from '../../data/types';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -33,10 +43,83 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
   );
 }
 
+const docStatuses: VendorDoc['status'][] = ['Valid', 'Expiring', 'Expired', 'Missing'];
+
+// Add / remove supplier documents in memory.
+function DocumentsPanel({ vendor }: { vendor: Vendor }) {
+  const { addVendorDoc, removeVendorDoc } = useProcurement();
+  const [name, setName] = useState('');
+  const [status, setStatus] = useState<VendorDoc['status']>('Valid');
+  const [expiry, setExpiry] = useState('');
+
+  const add = () => {
+    if (!name.trim()) return;
+    addVendorDoc(vendor.id, { name: name.trim(), status, expiry: expiry || undefined });
+    setName('');
+    setStatus('Valid');
+    setExpiry('');
+  };
+
+  return (
+    <Stack spacing={2}>
+      <Card variant="outlined">
+        <List>
+          {vendor.documents.length === 0 && (
+            <ListItem><ListItemText primary="No documents on file" /></ListItem>
+          )}
+          {vendor.documents.map((doc, i) => (
+            <ListItem
+              key={`${doc.name}-${i}`}
+              divider
+              secondaryAction={
+                <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
+                  <StatusChip status={doc.status} />
+                  <IconButton edge="end" size="small" onClick={() => removeVendorDoc(vendor.id, i)}>
+                    <DeleteOutlineRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              }
+            >
+              <ListItemIcon><DescriptionRoundedIcon /></ListItemIcon>
+              <ListItemText primary={doc.name} secondary={doc.expiry ? `Expires ${doc.expiry}` : undefined} />
+            </ListItem>
+          ))}
+        </List>
+      </Card>
+
+      <Card variant="outlined">
+        <CardHeader title="Add Document" slotProps={{ title: { variant: 'subtitle2' } }} />
+        <CardContent sx={{ pt: 0 }}>
+          <Grid container spacing={2} sx={{ alignItems: 'flex-end' }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <FormField fullWidth size="small" label="Document Name" placeholder="e.g. GMP Certificate" value={name} onChange={(e) => setName(e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 3 }}>
+              <FormSelectField fullWidth size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value as VendorDoc['status'])}>
+                {docStatuses.map((s) => (
+                  <MenuItem key={s} value={s}>{s}</MenuItem>
+                ))}
+              </FormSelectField>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 3 }}>
+              <FormField fullWidth size="small" type="date" label="Expiry" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 2 }}>
+              <Button fullWidth variant="contained" startIcon={<AddRoundedIcon />} disabled={!name.trim()} onClick={add}>
+                Add
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+    </Stack>
+  );
+}
+
 export default function VendorProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { vendors, purchaseOrders, rfqs } = useProcurement();
+  const { vendors, purchaseOrders, rfqs, grns } = useProcurement();
   const vendor = vendors.find((v) => v.id === id);
 
   if (!vendor) {
@@ -50,6 +133,7 @@ export default function VendorProfile() {
 
   const vendorPOs = purchaseOrders.filter((p) => p.vendorId === vendor.id);
   const vendorRFQs = rfqs.filter((r) => r.invitedVendors.includes(vendor.id));
+  const perf = vendorPerformance(vendor.id, purchaseOrders, grns);
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -93,6 +177,51 @@ export default function VendorProfile() {
               <LabeledValue label="Credit Limit" value={`$${vendor.creditLimit.toLocaleString()}`} />
               <LabeledValue label="Outstanding Balance" value={`$${vendor.outstandingBalance.toLocaleString()}`} />
             </Stack>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  );
+
+  const performanceTab = (
+    <Grid container spacing={2}>
+      <Grid size={{ xs: 12, md: 4 }}>
+        <Card variant="outlined" sx={{ height: '100%' }}>
+          <CardHeader title="Overall Rating" slotProps={{ title: { variant: 'subtitle2' } }} />
+          <CardContent sx={{ pt: 0 }}>
+            {perf.rating !== null ? (
+              <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
+                <Typography variant="h3" component="p">{perf.rating.toFixed(1)}</Typography>
+                <Rating value={perf.rating} precision={0.1} max={5} readOnly />
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Derived from {perf.matchedGrns} matched receipt{perf.matchedGrns === 1 ? '' : 's'}
+                </Typography>
+              </Stack>
+            ) : (
+              <Stack spacing={1}>
+                <Typography variant="h6">{perf.ratingLabel}</Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  {perf.ratingLabel === 'Not yet rated'
+                    ? 'No purchase orders on record for this vendor.'
+                    : 'Orders exist but no goods have been received yet.'}
+                </Typography>
+              </Stack>
+            )}
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid size={{ xs: 12, md: 8 }}>
+        <Card variant="outlined" sx={{ height: '100%' }}>
+          <CardHeader title="Performance Metrics" slotProps={{ title: { variant: 'subtitle2' } }} />
+          <CardContent sx={{ pt: 0 }}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Total Orders" value={perf.totalOrders} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Total Purchase" value={`$${perf.totalPurchase.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Matched Receipts" value={perf.matchedGrns} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="On-Time Delivery" value={perf.onTimePct === null ? '—' : `${perf.onTimePct}%`} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Avg Lead Time" value={perf.avgLeadDays === null ? '—' : `${perf.avgLeadDays} days`} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Rejected Qty" value={perf.rejectedPct === null ? '—' : `${perf.rejectedPct}%`} /></Grid>
+            </Grid>
           </CardContent>
         </Card>
       </Grid>
@@ -157,18 +286,7 @@ export default function VendorProfile() {
     </Card>
   );
 
-  const documentsTab = (
-    <Card variant="outlined">
-      <List>
-        {vendor.documents.map((doc) => (
-          <ListItem key={doc.name} divider secondaryAction={<StatusChip status={doc.status} />}>
-            <ListItemIcon><DescriptionRoundedIcon /></ListItemIcon>
-            <ListItemText primary={doc.name} secondary={doc.expiry ? `Expires ${doc.expiry}` : undefined} />
-          </ListItem>
-        ))}
-      </List>
-    </Card>
-  );
+  const documentsTab = <DocumentsPanel vendor={vendor} />;
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
@@ -191,7 +309,15 @@ export default function VendorProfile() {
               <Typography variant="body2" sx={{ fontWeight: 500 }}>{vendor.primaryContact}</Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>Primary contact</Typography>
             </Box>
-            <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+            <Stack direction="row" sx={{ gap: 2, alignItems: 'center' }}>
+              {perf.rating !== null ? (
+                <Stack sx={{ alignItems: 'flex-end' }}>
+                  <Rating value={perf.rating} precision={0.1} max={5} size="small" readOnly />
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>{perf.rating.toFixed(1)} / 5</Typography>
+                </Stack>
+              ) : (
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>{perf.ratingLabel}</Typography>
+              )}
               <StatusChip status={vendor.status} />
             </Stack>
           </Stack>
@@ -200,6 +326,7 @@ export default function VendorProfile() {
       <DetailTabs
         tabs={[
           { label: 'Overview', content: overviewTab },
+          { label: 'Performance', content: performanceTab },
           { label: 'Purchase Orders', content: poTab },
           { label: 'RFQs', content: rfqTab },
           { label: 'Documents', content: documentsTab },

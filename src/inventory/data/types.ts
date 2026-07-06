@@ -23,6 +23,31 @@ export type AdjustmentReason =
   | 'Quality Rejection';
 export type AdjustmentStatus = 'Pending Approval' | 'Approved' | 'Rejected';
 
+export type CostingMethod = 'FEFO' | 'FIFO';
+export type StockType = 'Raw Material' | 'Packaging' | 'Work-in-Progress' | 'Finished Goods';
+
+// Every quantity change in the system appends one of these to the ledger.
+export type MovementType =
+  | 'In'
+  | 'Out'
+  | 'Transfer'
+  | 'Adjustment'
+  | 'Reserve'
+  | 'Return'
+  | 'Write-off';
+
+export interface StockMovement {
+  id: string;
+  date: string;
+  type: MovementType;
+  itemId: string;
+  batchNumber: string;
+  warehouseId: string;
+  qty: number; // signed: positive = stock in, negative = stock out
+  reference: string;
+  by: string;
+}
+
 export interface Item {
   id: string;
   sku: string;
@@ -33,10 +58,15 @@ export interface Item {
   description: string;
   uom: string;
   reorderLevel: number;
+  safetyStock: number;
+  maximumStock: number;
   storageCondition: string;
   batchTracking: boolean;
   expiryTracking: boolean;
   shelfLifeMonths: number;
+  costingMethod: CostingMethod;
+  stockType: StockType;
+  barcode: string;
   preferredSupplier: string;
   purchasePrice: number;
   averageCost: number;
@@ -94,6 +124,7 @@ export interface Batch {
   poNumber: string;
   grnNumber: string;
   warehouseId: string;
+  bin: string;
   manufacturingDate: string;
   expiryDate: string;
   shelfLifeMonths: number;

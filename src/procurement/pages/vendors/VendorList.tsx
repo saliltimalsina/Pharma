@@ -7,6 +7,7 @@ import MenuItem from '@mui/material/MenuItem';
 import Avatar from '@mui/material/Avatar';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Rating from '@mui/material/Rating';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { GridColDef } from '@mui/x-data-grid';
 import PageHeader from '../../components/PageHeader';
@@ -15,6 +16,7 @@ import FilterSelect from '../../components/FilterSelect';
 import StatusChip from '../../components/StatusChip';
 import ProcurementDataGrid from '../../components/ProcurementDataGrid';
 import { useProcurement } from '../../store/ProcurementStore';
+import { vendorPerformance } from '../../data/vendorPerformance';
 import type { VendorCategory } from '../../data/types';
 
 const categories: VendorCategory[] = ['API Supplier', 'Excipients', 'Packaging', 'Lab Equipment', 'Logistics', 'MRO'];
@@ -46,6 +48,25 @@ const columns: GridColDef[] = [
     valueFormatter: (value: number) => `$${value.toLocaleString()}`,
   },
   {
+    field: 'rating',
+    headerName: 'Rating',
+    minWidth: 170,
+    sortComparator: (a, b) => (a ?? -1) - (b ?? -1),
+    renderCell: (params) =>
+      params.value == null ? (
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          {params.row.ratingLabel}
+        </Typography>
+      ) : (
+        <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5, height: '100%' }}>
+          <Rating value={params.value} precision={0.1} max={5} size="small" readOnly />
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {params.value.toFixed(1)}
+          </Typography>
+        </Stack>
+      ),
+  },
+  {
     field: 'status',
     headerName: 'Status',
     minWidth: 150,
@@ -55,7 +76,7 @@ const columns: GridColDef[] = [
 
 export default function VendorList() {
   const navigate = useNavigate();
-  const { vendors } = useProcurement();
+  const { vendors, purchaseOrders, grns } = useProcurement();
   const [category, setCategory] = useState('All');
   const [status, setStatus] = useState('All');
   const [country, setCountry] = useState('All');
@@ -68,16 +89,21 @@ export default function VendorList() {
         .filter((v) => category === 'All' || v.category === category)
         .filter((v) => status === 'All' || v.status === status)
         .filter((v) => country === 'All' || v.country === country)
-        .map((v) => ({
-          id: v.id,
-          name: v.name,
-          category: v.category,
-          phone: v.phone,
-          email: v.email,
-          outstandingBalance: v.outstandingBalance,
-          status: v.status,
-        })),
-    [vendors, category, status, country],
+        .map((v) => {
+          const perf = vendorPerformance(v.id, purchaseOrders, grns);
+          return {
+            id: v.id,
+            name: v.name,
+            category: v.category,
+            phone: v.phone,
+            email: v.email,
+            outstandingBalance: v.outstandingBalance,
+            rating: perf.rating,
+            ratingLabel: perf.ratingLabel,
+            status: v.status,
+          };
+        }),
+    [vendors, purchaseOrders, grns, category, status, country],
   );
 
   return (

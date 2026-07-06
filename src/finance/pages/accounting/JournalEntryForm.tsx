@@ -12,6 +12,7 @@ import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useFinance } from '../../store/FinanceStore';
+import { costCenters } from '../../data/mockData';
 
 export default function JournalEntryForm() {
   const navigate = useNavigate();
@@ -23,11 +24,12 @@ export default function JournalEntryForm() {
   const [debitAccount, setDebitAccount] = useState(chartOfAccounts[0].name);
   const [creditAccount, setCreditAccount] = useState(chartOfAccounts[1].name);
   const [amount, setAmount] = useState(0);
+  const [costCenter, setCostCenter] = useState('');
 
   const canSubmit = description.trim() !== '' && amount > 0 && debitAccount !== creditAccount;
 
   const handleSubmit = () => {
-    addJournalEntry({ reference, description, date, debitAccount, creditAccount, amount });
+    addJournalEntry({ reference, description, date, debitAccount, creditAccount, amount, costCenter: costCenter || undefined });
     navigate('/finance/accounting');
   };
 
@@ -69,6 +71,14 @@ export default function JournalEntryForm() {
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormField fullWidth type="number" label="Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormSelectField fullWidth label="Cost Centre (optional)" value={costCenter} onChange={(e) => setCostCenter(e.target.value)}>
+                  <MenuItem value="">Unassigned</MenuItem>
+                  {costCenters.map((c) => (
+                    <MenuItem key={c} value={c}>{c}</MenuItem>
+                  ))}
+                </FormSelectField>
               </Grid>
             </Grid>
           </CardContent>

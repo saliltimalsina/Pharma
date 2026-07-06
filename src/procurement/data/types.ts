@@ -128,6 +128,12 @@ export interface PoItem {
   receivedQty?: number;
 }
 
+export interface PoAmendment {
+  date: string;
+  note: string;
+  changedBy: string;
+}
+
 export interface PurchaseOrder {
   id: string;
   poNumber: string;
@@ -142,6 +148,7 @@ export interface PurchaseOrder {
   status: PoStatus;
   createdBy: string;
   items: PoItem[];
+  amendments?: PoAmendment[];
 }
 
 export interface GrnItem {
@@ -152,6 +159,11 @@ export interface GrnItem {
   rejectedQty: number;
   batchNumber: string;
   expiryDate: string;
+}
+
+export interface GrnInspectionResult {
+  check: string;
+  result: 'pass' | 'fail';
 }
 
 export interface Grn {
@@ -165,4 +177,35 @@ export interface Grn {
   deliveryNote: string;
   status: GrnStatus;
   items: GrnItem[];
+  inspection?: GrnInspectionResult[];
+}
+
+export type ProcurementEventType =
+  | 'Created'
+  | 'Submitted'
+  | 'Approved'
+  | 'Rejected'
+  | 'Completed'
+  | 'Amended'
+  | 'Awarded'
+  | 'Sent'
+  | 'Received'
+  | 'Quote Submitted'
+  | 'Document Added'
+  | 'Document Removed';
+
+export type ProcurementEntity =
+  | 'Requisition'
+  | 'RFQ'
+  | 'Purchase Order'
+  | 'GRN'
+  | 'Vendor';
+
+export interface ProcurementEvent {
+  id: string;
+  date: string;
+  type: ProcurementEventType;
+  entity: ProcurementEntity;
+  ref: string;
+  by: string;
 }

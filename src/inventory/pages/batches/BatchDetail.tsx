@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -6,6 +7,7 @@ import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -32,8 +34,9 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
 export default function BatchDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { batches } = useInventory();
+  const { batches, updateBatchBin } = useInventory();
   const batch = batches.find((b) => b.id === (id ?? ''));
+  const [binDraft, setBinDraft] = useState(batch?.bin ?? '');
 
   if (!batch) {
     return (
@@ -73,6 +76,31 @@ export default function BatchDetail() {
               <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Shelf Life" value={`${batch.shelfLifeMonths} months`} /></Grid>
               <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Country of Origin" value={batch.countryOfOrigin} /></Grid>
             </Grid>
+          </CardContent>
+        </Card>
+        <Card variant="outlined" sx={{ mt: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle2" gutterBottom>Bin & Rack Location</Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 1.5, alignItems: { sm: 'center' }, mt: 1 }}>
+              <TextField
+                label="Bin Location"
+                size="small"
+                value={binDraft}
+                onChange={(e) => setBinDraft(e.target.value)}
+                placeholder="e.g. WH01-A2-R1-S3"
+                sx={{ minWidth: 260 }}
+              />
+              <Button
+                variant="contained"
+                disabled={binDraft.trim() === '' || binDraft === batch.bin}
+                onClick={() => updateBatchBin(batch.id, binDraft.trim())}
+              >
+                Save Location
+              </Button>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Format: Warehouse-Aisle-Rack-Shelf. Updates the stock view for this batch.
+              </Typography>
+            </Stack>
           </CardContent>
         </Card>
       </Grid>

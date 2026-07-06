@@ -11,13 +11,17 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import Chip from '@mui/material/Chip';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { ExpiryChip } from '../../components/expiryUtils';
+import Barcode, { printBarcode } from '../../components/Barcode';
 import { useInventory } from '../../store/InventoryStore';
 import { warehouseById } from '../../data/mockData';
+import { orderBatchesByCosting } from '../../data/costing';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -48,34 +52,98 @@ export default function ItemDetail() {
   const totalReserved = itemBatches.reduce((sum, b) => sum + b.reservedQty, 0);
   const stockLevel = totalAvailable === 0 ? 'Out of Stock' : totalAvailable <= item.reorderLevel ? 'Low Stock' : 'In Stock';
 
+  // FEFO/FIFO pick order — the sequence stock would be consumed in.
+  const pickOrder = orderBatchesByCosting(
+    itemBatches.filter((b) => b.availableQty > 0),
+    item.costingMethod,
+  );
+
+  // Derived alerts from on-hand vs. thresholds.
+  const belowSafety = totalAvailable > 0 && totalAvailable <= item.safetyStock;
+  const overstock = item.maximumStock > 0 && totalAvailable >= item.maximumStock;
+
   const overviewTab = (
     <Grid container spacing={2}>
       <Grid size={{ xs: 12, md: 8 }}>
-        <Card variant="outlined">
-          <CardContent>
-            <Typography variant="subtitle2" gutterBottom>General Information</Typography>
-            <Grid container spacing={2} sx={{ mt: 0.5 }}>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="SKU" value={item.sku} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Category" value={item.category} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Brand" value={item.brand} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Manufacturer" value={item.manufacturer} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="UOM" value={item.uom} /></Grid>
-              <Grid size={{ xs: 12 }}><LabeledValue label="Description" value={item.description} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Storage Condition" value={item.storageCondition} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Shelf Life" value={item.expiryTracking ? `${item.shelfLifeMonths} months` : 'Not tracked'} /></Grid>
-            </Grid>
-          </CardContent>
-        </Card>
+        <Stack spacing={2}>
+          <Card variant="outlined">
+            <CardContent>
+              <Typography variant="subtitle2" gutterBottom>General Information</Typography>
+              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="SKU" value={item.sku} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Category" value={item.category} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Brand" value={item.brand} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Manufacturer" value={item.manufacturer} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="UOM" value={item.uom} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Stock Type" value={item.stockType} /></Grid>
+                <Grid size={{ xs: 12 }}><LabeledValue label="Description" value={item.description} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Storage Condition" value={item.storageCondition} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Shelf Life" value={item.expiryTracking ? `${item.shelfLifeMonths} months` : 'Not tracked'} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Costing Method" value={item.costingMethod} /></Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined">
+            <CardContent>
+              <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <Typography variant="subtitle2" gutterBottom>Barcode</Typography>
+                <Button size="small" startIcon={<QrCode2RoundedIcon />} onClick={() => printBarcode({ title: item.name, subtitle: `${item.sku} · ${item.category}`, value: item.barcode || item.sku })}>
+                  Print Barcode
+                </Button>
+              </Stack>
+              {item.barcode ? (
+                <Barcode value={item.barcode} />
+              ) : (
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>No barcode assigned.</Typography>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined">
+            <CardContent>
+              <Typography variant="subtitle2" gutterBottom>{item.costingMethod} Pick Order</Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Next batch to be consumed appears first.
+              </Typography>
+              {pickOrder.length === 0 ? (
+                <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>No available stock.</Typography>
+              ) : (
+                <Stack sx={{ mt: 1 }}>
+                  {pickOrder.map((b, i) => (
+                    <Stack key={b.id} direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', py: 0.75, borderBottom: i < pickOrder.length - 1 ? 1 : 0, borderColor: 'divider' }}>
+                      <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                        {i === 0 && <Chip size="small" color="primary" label="Next" />}
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{b.batchNumber}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{warehouseById(b.warehouseId)?.name}</Typography>
+                      </Stack>
+                      <Stack direction="row" sx={{ gap: 1.5, alignItems: 'center' }}>
+                        <Typography variant="body2">{b.availableQty.toLocaleString()} {item.uom}</Typography>
+                        {item.expiryTracking && <ExpiryChip dateStr={b.expiryDate} />}
+                      </Stack>
+                    </Stack>
+                  ))}
+                </Stack>
+              )}
+            </CardContent>
+          </Card>
+        </Stack>
       </Grid>
       <Grid size={{ xs: 12, md: 4 }}>
         <Card variant="outlined">
           <CardContent>
             <Typography variant="subtitle2" gutterBottom>Stock Status</Typography>
-            <StatusChip status={stockLevel} />
-            <Stack sx={{ mt: 2, gap: 1.5 }}>
+            <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', mb: 1 }}>
+              <StatusChip status={stockLevel} />
+              {belowSafety && <Chip size="small" color="error" label="Below Safety" />}
+              {overstock && <Chip size="small" color="warning" label="Overstock" />}
+            </Stack>
+            <Stack sx={{ mt: 1, gap: 1.5 }}>
               <LabeledValue label="Available" value={totalAvailable.toLocaleString()} />
               <LabeledValue label="Reserved" value={totalReserved.toLocaleString()} />
               <LabeledValue label="Reorder Level" value={item.reorderLevel.toLocaleString()} />
+              <LabeledValue label="Safety Stock" value={item.safetyStock.toLocaleString()} />
+              <LabeledValue label="Maximum Stock" value={item.maximumStock.toLocaleString()} />
               <LabeledValue label="Preferred Supplier" value={item.preferredSupplier} />
             </Stack>
           </CardContent>

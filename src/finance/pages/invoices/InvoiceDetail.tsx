@@ -12,11 +12,12 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useFinance } from '../../store/FinanceStore';
-import { customerById } from '../../data/mockData';
+import { customerById, invoiceBalance } from '../../data/mockData';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -36,7 +37,7 @@ function lineTotal(line: { quantity: number; unitPrice: number; discount: number
 export default function InvoiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { invoices, payments } = useFinance();
+  const { invoices, payments, creditNotes, convertProforma } = useFinance();
   const invoice = invoices.find((i) => i.id === id);
 
   if (!invoice) {
@@ -49,8 +50,10 @@ export default function InvoiceDetail() {
   }
 
   const customer = customerById(invoice.customerId);
-  const balance = invoice.amount - invoice.paid;
+  const credited = invoice.credited ?? 0;
+  const balance = invoiceBalance(invoice);
   const relatedPayments = payments.filter((p) => p.invoiceOrBillRef === invoice.invoiceNo);
+  const relatedCreditNotes = creditNotes.filter((n) => n.invoiceNo === invoice.invoiceNo);
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -80,6 +83,7 @@ export default function InvoiceDetail() {
             <Stack sx={{ mt: 2, gap: 1.5 }}>
               <LabeledValue label="Amount" value={`$${invoice.amount.toLocaleString()}`} />
               <LabeledValue label="Paid" value={`$${invoice.paid.toLocaleString()}`} />
+              {credited > 0 && <LabeledValue label="Credited" value={`$${credited.toLocaleString()}`} />}
               <LabeledValue label="Balance" value={`$${balance.toLocaleString()}`} />
             </Stack>
           </CardContent>
@@ -150,6 +154,36 @@ export default function InvoiceDetail() {
     </Card>
   );
 
+  const creditNotesTab = (
+    <Card variant="outlined">
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Credit Note No.</TableCell>
+            <TableCell>Date</TableCell>
+            <TableCell>Reason</TableCell>
+            <TableCell align="right">Amount</TableCell>
+            <TableCell>Status</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {relatedCreditNotes.length === 0 && (
+            <TableRow><TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>No credit notes issued</TableCell></TableRow>
+          )}
+          {relatedCreditNotes.map((n) => (
+            <TableRow key={n.id} hover>
+              <TableCell sx={{ fontWeight: 500 }}>{n.creditNoteNo}</TableCell>
+              <TableCell>{n.date}</TableCell>
+              <TableCell>{n.reason || '—'}</TableCell>
+              <TableCell align="right">${n.amount.toLocaleString()}</TableCell>
+              <TableCell><StatusChip status={n.status} /></TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
       <PageHeader
@@ -158,8 +192,16 @@ export default function InvoiceDetail() {
         actions={
           <>
             <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/finance/invoices')}>Back</Button>
-            {balance > 0 && invoice.status !== 'Draft' && invoice.status !== 'Cancelled' && (
-              <Button variant="contained" onClick={() => navigate('/finance/payments/new')}>Record Payment</Button>
+            {invoice.status === 'Proforma' && (
+              <Button variant="contained" onClick={() => convertProforma(invoice.id)}>Convert to Invoice</Button>
+            )}
+            {balance > 0 && !['Draft', 'Proforma', 'Cancelled'].includes(invoice.status) && (
+              <>
+                <Button variant="outlined" startIcon={<ReceiptLongRoundedIcon />} onClick={() => navigate(`/finance/credit-notes/new?invoice=${invoice.invoiceNo}`)}>
+                  Create Credit Note
+                </Button>
+                <Button variant="contained" onClick={() => navigate('/finance/payments/new')}>Record Payment</Button>
+              </>
             )}
           </>
         }
@@ -169,6 +211,7 @@ export default function InvoiceDetail() {
           { label: 'Overview', content: overviewTab },
           { label: 'Products', content: productsTab },
           { label: 'Payments', content: paymentsTab },
+          { label: 'Credit Notes', content: creditNotesTab },
         ]}
       />
     </Box>

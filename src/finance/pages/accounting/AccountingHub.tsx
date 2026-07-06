@@ -21,7 +21,7 @@ import KpiCard from '../../components/KpiCard';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useFinance } from '../../store/FinanceStore';
-import { customerById } from '../../data/mockData';
+import { customerById, invoiceBalance, billBalance } from '../../data/mockData';
 import { daysUntil } from '../../../inventory/components/expiryUtils';
 
 export default function AccountingHub() {
@@ -88,6 +88,7 @@ export default function AccountingHub() {
               <TableCell>Reference</TableCell>
               <TableCell>Debit Account</TableCell>
               <TableCell>Credit Account</TableCell>
+              <TableCell>Cost Centre</TableCell>
               <TableCell align="right">Amount</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
@@ -100,6 +101,7 @@ export default function AccountingHub() {
                 <TableCell>{j.reference}</TableCell>
                 <TableCell>{j.debitAccount}</TableCell>
                 <TableCell>{j.creditAccount}</TableCell>
+                <TableCell>{j.costCenter ?? '—'}</TableCell>
                 <TableCell align="right">${j.amount.toLocaleString()}</TableCell>
                 <TableCell><StatusChip status={j.status} /></TableCell>
               </TableRow>
@@ -156,13 +158,13 @@ export default function AccountingHub() {
           </TableRow>
         </TableHead>
         <TableBody>
-          {invoices.filter((i) => i.amount - i.paid > 0 && i.status !== 'Draft').map((i) => {
+          {invoices.filter((i) => invoiceBalance(i) > 0 && !['Draft', 'Proforma'].includes(i.status)).map((i) => {
             const days = i.dueDate ? -daysUntil(i.dueDate) : 0;
             return (
               <TableRow key={i.id} hover>
                 <TableCell sx={{ fontWeight: 500 }}>{customerById(i.customerId)?.name}</TableCell>
                 <TableCell>{i.invoiceNo}</TableCell>
-                <TableCell align="right">${(i.amount - i.paid).toLocaleString()}</TableCell>
+                <TableCell align="right">${invoiceBalance(i).toLocaleString()}</TableCell>
                 <TableCell align="right">{days > 0 ? `${days}d overdue` : `${-days}d left`}</TableCell>
                 <TableCell><StatusChip status={i.status} /></TableCell>
                 <TableCell align="right">
@@ -191,11 +193,11 @@ export default function AccountingHub() {
           </TableRow>
         </TableHead>
         <TableBody>
-          {supplierBills.filter((b) => b.amount - b.paid > 0 && b.status !== 'Draft').map((b) => (
+          {supplierBills.filter((b) => billBalance(b) > 0 && b.status !== 'Draft').map((b) => (
             <TableRow key={b.id} hover>
               <TableCell sx={{ fontWeight: 500 }}>{b.vendorName}</TableCell>
               <TableCell>{b.billNo}</TableCell>
-              <TableCell align="right">${(b.amount - b.paid).toLocaleString()}</TableCell>
+              <TableCell align="right">${billBalance(b).toLocaleString()}</TableCell>
               <TableCell>{b.dueDate}</TableCell>
               <TableCell><StatusChip status={b.status} /></TableCell>
               <TableCell align="right">

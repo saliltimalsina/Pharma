@@ -26,7 +26,7 @@ import PageHeader from '../../components/PageHeader';
 import KpiCard from '../../components/KpiCard';
 import StatusChip from '../../components/StatusChip';
 import { useFinance } from '../../store/FinanceStore';
-import { customerById } from '../../data/mockData';
+import { customerById, invoiceBalance, billBalance } from '../../data/mockData';
 
 const quickActions = [
   { label: 'Create Invoice', icon: <ReceiptLongRoundedIcon />, path: '/finance/invoices/new' },
@@ -114,11 +114,11 @@ export default function FinanceDashboard() {
   const { invoices, supplierBills, chartOfAccounts, bankAccounts } = useFinance();
 
   const outstandingReceivables = invoices
-    .filter((i) => !['Paid', 'Cancelled', 'Draft'].includes(i.status))
-    .reduce((sum, i) => sum + (i.amount - i.paid), 0);
+    .filter((i) => !['Paid', 'Cancelled', 'Draft', 'Proforma'].includes(i.status))
+    .reduce((sum, i) => sum + invoiceBalance(i), 0);
   const outstandingPayables = supplierBills
     .filter((b) => !['Paid', 'Cancelled', 'Draft'].includes(b.status))
-    .reduce((sum, b) => sum + (b.amount - b.paid), 0);
+    .reduce((sum, b) => sum + billBalance(b), 0);
   const cashBalance = chartOfAccounts.find((a) => a.code === '1000')?.balance ?? 0;
   const bankBalance = bankAccounts.reduce((sum, b) => sum + b.balance, 0);
   const pendingPayments =
