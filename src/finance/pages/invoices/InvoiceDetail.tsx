@@ -1,0 +1,176 @@
+import { useParams, useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Grid from '@mui/material/Grid';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import PageHeader from '../../components/PageHeader';
+import StatusChip from '../../components/StatusChip';
+import DetailTabs from '../../components/DetailTabs';
+import { useFinance } from '../../store/FinanceStore';
+import { customerById } from '../../data/mockData';
+
+function LabeledValue({ label, value }: { label: string; value?: string | number }) {
+  return (
+    <Box>
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{label}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 500 }}>{value || '—'}</Typography>
+    </Box>
+  );
+}
+
+function lineTotal(line: { quantity: number; unitPrice: number; discount: number; vat: number }) {
+  const base = line.quantity * line.unitPrice;
+  const discounted = base - (base * line.discount) / 100;
+  return discounted + (discounted * line.vat) / 100;
+}
+
+export default function InvoiceDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { invoices, payments } = useFinance();
+  const invoice = invoices.find((i) => i.id === id);
+
+  if (!invoice) {
+    return (
+      <Box>
+        <Typography>Invoice not found.</Typography>
+        <Button onClick={() => navigate('/finance/invoices')}>Back to list</Button>
+      </Box>
+    );
+  }
+
+  const customer = customerById(invoice.customerId);
+  const balance = invoice.amount - invoice.paid;
+  const relatedPayments = payments.filter((p) => p.invoiceOrBillRef === invoice.invoiceNo);
+
+  const overviewTab = (
+    <Grid container spacing={2}>
+      <Grid size={{ xs: 12, md: 8 }}>
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="subtitle2" gutterBottom>Customer Information</Typography>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Invoice Number" value={invoice.invoiceNo} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Customer" value={customer?.name} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Salesperson" value={invoice.salesperson} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Invoice Date" value={invoice.invoiceDate} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Due Date" value={invoice.dueDate} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Reference Number" value={invoice.referenceNumber} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Billing Address" value={customer?.billingAddress} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Shipping Address" value={customer?.shippingAddress} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Payment Method" value={invoice.paymentMethod} /></Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid size={{ xs: 12, md: 4 }}>
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="subtitle2" gutterBottom>Status</Typography>
+            <StatusChip status={invoice.status} />
+            <Stack sx={{ mt: 2, gap: 1.5 }}>
+              <LabeledValue label="Amount" value={`$${invoice.amount.toLocaleString()}`} />
+              <LabeledValue label="Paid" value={`$${invoice.paid.toLocaleString()}`} />
+              <LabeledValue label="Balance" value={`$${balance.toLocaleString()}`} />
+            </Stack>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  );
+
+  const productsTab = (
+    <Card variant="outlined">
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Product</TableCell>
+            <TableCell>Batch Number</TableCell>
+            <TableCell align="right">Qty</TableCell>
+            <TableCell align="right">Unit Price</TableCell>
+            <TableCell align="right">Discount</TableCell>
+            <TableCell align="right">VAT</TableCell>
+            <TableCell align="right">Total</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {invoice.lines.length === 0 && (
+            <TableRow><TableCell colSpan={7} align="center" sx={{ color: 'text.secondary' }}>No line items yet</TableCell></TableRow>
+          )}
+          {invoice.lines.map((line, i) => (
+            <TableRow key={i} hover>
+              <TableCell sx={{ fontWeight: 500 }}>{line.product}</TableCell>
+              <TableCell>{line.batchNumber}</TableCell>
+              <TableCell align="right">{line.quantity.toLocaleString()}</TableCell>
+              <TableCell align="right">${line.unitPrice}</TableCell>
+              <TableCell align="right">{line.discount}%</TableCell>
+              <TableCell align="right">{line.vat}%</TableCell>
+              <TableCell align="right">${lineTotal(line).toFixed(2)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+
+  const paymentsTab = (
+    <Card variant="outlined">
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Payment No.</TableCell>
+            <TableCell>Date</TableCell>
+            <TableCell>Method</TableCell>
+            <TableCell align="right">Amount</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {relatedPayments.length === 0 && (
+            <TableRow><TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>No payments recorded yet</TableCell></TableRow>
+          )}
+          {relatedPayments.map((p) => (
+            <TableRow key={p.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/finance/payments/${p.id}`)}>
+              <TableCell sx={{ fontWeight: 500 }}>{p.paymentNo}</TableCell>
+              <TableCell>{p.date}</TableCell>
+              <TableCell>{p.method}</TableCell>
+              <TableCell align="right">${p.amount.toLocaleString()}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+
+  return (
+    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
+      <PageHeader
+        title={invoice.invoiceNo}
+        subtitle={customer?.name}
+        actions={
+          <>
+            <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/finance/invoices')}>Back</Button>
+            {balance > 0 && invoice.status !== 'Draft' && invoice.status !== 'Cancelled' && (
+              <Button variant="contained" onClick={() => navigate('/finance/payments/new')}>Record Payment</Button>
+            )}
+          </>
+        }
+      />
+      <DetailTabs
+        tabs={[
+          { label: 'Overview', content: overviewTab },
+          { label: 'Products', content: productsTab },
+          { label: 'Payments', content: paymentsTab },
+        ]}
+      />
+    </Box>
+  );
+}

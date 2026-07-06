@@ -1,0 +1,188 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import Grid from '@mui/material/Grid';
+import MenuItem from '@mui/material/MenuItem';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import PageHeader from '../../components/PageHeader';
+import FormField from '../../components/FormField';
+import FormSelectField from '../../components/FormSelectField';
+import { useInventory } from '../../store/InventoryStore';
+import { categories, brands } from '../../data/mockData';
+
+const suppliers = [
+  'Alpine Pharma Chemicals',
+  'MeridianExcipients Ltd.',
+  'ClearPack Industries',
+  'Nordic Lab Instruments',
+  'Vertex Fine Chemicals',
+  'Danube Excipient Works',
+];
+const currencies = ['USD', 'EUR', 'CHF'];
+const uoms = ['kg', 'g', 'pcs', 'roll', 'vial', 'box', 'litre'];
+
+export default function ItemForm() {
+  const navigate = useNavigate();
+  const { addItem } = useInventory();
+
+  const [name, setName] = useState('');
+  const [category, setCategory] = useState(categories[0]);
+  const [brand, setBrand] = useState(brands[0]);
+  const [manufacturer, setManufacturer] = useState('');
+  const [description, setDescription] = useState('');
+
+  const [uom, setUom] = useState(uoms[0]);
+  const [reorderLevel, setReorderLevel] = useState(0);
+  const [storageCondition, setStorageCondition] = useState('Ambient, dry');
+
+  const [batchTracking, setBatchTracking] = useState(true);
+  const [expiryTracking, setExpiryTracking] = useState(true);
+  const [shelfLifeMonths, setShelfLifeMonths] = useState(24);
+
+  const [preferredSupplier, setPreferredSupplier] = useState(suppliers[0]);
+  const [purchasePrice, setPurchasePrice] = useState(0);
+  const [currency, setCurrency] = useState(currencies[0]);
+
+  const canSubmit = name.trim() !== '' && category !== '';
+
+  const handleSubmit = () => {
+    const id = addItem({
+      name,
+      category,
+      brand,
+      manufacturer,
+      description,
+      uom,
+      reorderLevel,
+      storageCondition,
+      batchTracking,
+      expiryTracking,
+      shelfLifeMonths,
+      preferredSupplier,
+      purchasePrice,
+      averageCost: purchasePrice,
+      currency,
+    });
+    navigate(`/inventory/items/${id}`);
+  };
+
+  return (
+    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1400px' } }}>
+      <PageHeader
+        title="Add Product"
+        subtitle="Create a new item in the master database"
+        actions={<Button onClick={() => navigate('/inventory/items')}>Cancel</Button>}
+      />
+
+      <Stack spacing={2}>
+        <Card variant="outlined">
+          <CardHeader title="General Information" slotProps={{ title: { variant: 'subtitle2' } }} />
+          <CardContent sx={{ pt: 0 }}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth label="SKU" value="Auto-generated" disabled />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth label="Product Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Paracetamol API" />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormSelectField fullWidth label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+                  {categories.map((c) => (
+                    <MenuItem key={c} value={c}>{c}</MenuItem>
+                  ))}
+                </FormSelectField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormSelectField fullWidth label="Brand" value={brand} onChange={(e) => setBrand(e.target.value)}>
+                  {brands.map((b) => (
+                    <MenuItem key={b} value={b}>{b}</MenuItem>
+                  ))}
+                </FormSelectField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth label="Manufacturer" value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth label="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        <Card variant="outlined">
+          <CardHeader title="Inventory" slotProps={{ title: { variant: 'subtitle2' } }} />
+          <CardContent sx={{ pt: 0 }}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormSelectField fullWidth label="Unit of Measure" value={uom} onChange={(e) => setUom(e.target.value)}>
+                  {uoms.map((u) => (
+                    <MenuItem key={u} value={u}>{u}</MenuItem>
+                  ))}
+                </FormSelectField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth label="Storage Condition" value={storageCondition} onChange={(e) => setStorageCondition(e.target.value)} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth type="number" label="Reorder Level" value={reorderLevel} onChange={(e) => setReorderLevel(Number(e.target.value))} />
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        <Card variant="outlined">
+          <CardHeader title="Batch Settings" slotProps={{ title: { variant: 'subtitle2' } }} />
+          <CardContent sx={{ pt: 0 }}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormControlLabel control={<Switch checked={batchTracking} onChange={(e) => setBatchTracking(e.target.checked)} />} label="Batch Tracking" />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormControlLabel control={<Switch checked={expiryTracking} onChange={(e) => setExpiryTracking(e.target.checked)} />} label="Expiry Tracking" />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth type="number" label="Shelf Life (months)" value={shelfLifeMonths} onChange={(e) => setShelfLifeMonths(Number(e.target.value))} disabled={!expiryTracking} />
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        <Card variant="outlined">
+          <CardHeader title="Purchasing" slotProps={{ title: { variant: 'subtitle2' } }} />
+          <CardContent sx={{ pt: 0 }}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormSelectField fullWidth label="Preferred Supplier" value={preferredSupplier} onChange={(e) => setPreferredSupplier(e.target.value)}>
+                  {suppliers.map((s) => (
+                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                  ))}
+                </FormSelectField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormField fullWidth type="number" label="Purchase Price" value={purchasePrice} onChange={(e) => setPurchasePrice(Number(e.target.value))} />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormSelectField fullWidth label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                  {currencies.map((c) => (
+                    <MenuItem key={c} value={c}>{c}</MenuItem>
+                  ))}
+                </FormSelectField>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
+          <Button variant="outlined" onClick={() => navigate('/inventory/items')}>Cancel</Button>
+          <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>Save Product</Button>
+        </Stack>
+      </Stack>
+    </Box>
+  );
+}

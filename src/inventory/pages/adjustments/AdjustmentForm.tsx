@@ -1,0 +1,170 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import Grid from '@mui/material/Grid';
+import MenuItem from '@mui/material/MenuItem';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import PageHeader from '../../components/PageHeader';
+import FormField from '../../components/FormField';
+import FormSelectField from '../../components/FormSelectField';
+import { useInventory } from '../../store/InventoryStore';
+import { warehouses } from '../../data/mockData';
+import type { AdjustmentItem, AdjustmentReason } from '../../data/types';
+
+const reasons: AdjustmentReason[] = ['Damage', 'Loss', 'Theft', 'Counting Error', 'Expired Items', 'Quality Rejection'];
+
+let rowId = 0;
+function blankItem(): AdjustmentItem & { key: number } {
+  rowId += 1;
+  return { key: rowId, itemId: '', batchNumber: '', currentQty: 0, actualQty: 0 };
+}
+
+export default function AdjustmentForm() {
+  const navigate = useNavigate();
+  const { addAdjustment } = useInventory();
+
+  const [warehouseId, setWarehouseId] = useState(warehouses[0].id);
+  const [type, setType] = useState<'Increase' | 'Decrease'>('Decrease');
+  const [reason, setReason] = useState<AdjustmentReason>(reasons[0]);
+  const [reference, setReference] = useState('');
+  const [notes, setNotes] = useState('');
+  const [createdBy] = useState('Riley Carter');
+  const [rows, setRows] = useState([blankItem()]);
+
+  const updateRow = (key: number, field: keyof AdjustmentItem, value: string | number) => {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
+  };
+
+  const canSubmit = reference.trim() !== '' && rows.some((r) => r.itemId.trim() !== '');
+
+  const handleSubmit = () => {
+    const id = addAdjustment({
+      warehouseId,
+      type,
+      reason,
+      reference,
+      notes,
+      date: new Date().toISOString().slice(0, 10),
+      createdBy,
+      items: rows.map((r) => ({
+        itemId: r.itemId,
+        batchNumber: r.batchNumber,
+        currentQty: r.currentQty,
+        actualQty: r.actualQty,
+      })),
+    });
+    navigate(`/inventory/adjustments/${id}`);
+  };
+
+  return (
+    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1400px' } }}>
+      <PageHeader
+        title="Create Adjustment"
+        subtitle="Reconcile physical stock against system stock"
+        actions={<Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/adjustments')}>Cancel</Button>}
+      />
+
+      <Stack spacing={2}>
+        <Card variant="outlined">
+          <CardHeader title="General" slotProps={{ title: { variant: 'subtitle2' } }} />
+          <CardContent sx={{ pt: 0 }}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 3 }}>
+                <FormSelectField fullWidth label="Warehouse" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                  {warehouses.map((w) => (
+                    <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
+                  ))}
+                </FormSelectField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 3 }}>
+                <FormSelectField fullWidth label="Adjustment Type" value={type} onChange={(e) => setType(e.target.value as 'Increase' | 'Decrease')}>
+                  <MenuItem value="Increase">Increase</MenuItem>
+                  <MenuItem value="Decrease">Decrease</MenuItem>
+                </FormSelectField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 3 }}>
+                <FormSelectField fullWidth label="Reason" value={reason} onChange={(e) => setReason(e.target.value as AdjustmentReason)}>
+                  {reasons.map((r) => (
+                    <MenuItem key={r} value={r}>{r}</MenuItem>
+                  ))}
+                </FormSelectField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 3 }}>
+                <FormField fullWidth label="Reference" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. GRN or cycle count ref." />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <FormField fullWidth multiline minRows={2} label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        <Card variant="outlined">
+          <CardHeader
+            title="Items"
+            slotProps={{ title: { variant: 'subtitle2' } }}
+            action={
+              <Button size="small" startIcon={<AddRoundedIcon />} onClick={() => setRows((prev) => [...prev, blankItem()])}>
+                Add Item
+              </Button>
+            }
+          />
+          <CardContent sx={{ pt: 0 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Product</TableCell>
+                  <TableCell>Batch</TableCell>
+                  <TableCell width={110}>Current Qty</TableCell>
+                  <TableCell width={110}>Actual Qty</TableCell>
+                  <TableCell width={100} align="right">Difference</TableCell>
+                  <TableCell width={50} />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rows.map((row) => {
+                  const diff = row.actualQty - row.currentQty;
+                  return (
+                    <TableRow key={row.key}>
+                      <TableCell><TextField variant="standard" fullWidth placeholder="Product name" value={row.itemId} onChange={(e) => updateRow(row.key, 'itemId', e.target.value)} /></TableCell>
+                      <TableCell><TextField variant="standard" fullWidth placeholder="Batch number" value={row.batchNumber} onChange={(e) => updateRow(row.key, 'batchNumber', e.target.value)} /></TableCell>
+                      <TableCell><TextField variant="standard" type="number" fullWidth value={row.currentQty} onChange={(e) => updateRow(row.key, 'currentQty', Number(e.target.value))} /></TableCell>
+                      <TableCell><TextField variant="standard" type="number" fullWidth value={row.actualQty} onChange={(e) => updateRow(row.key, 'actualQty', Number(e.target.value))} /></TableCell>
+                      <TableCell align="right" sx={{ color: diff < 0 ? 'error.main' : diff > 0 ? 'success.main' : 'text.secondary', fontWeight: 600 }}>
+                        {diff > 0 ? `+${diff}` : diff}
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" disabled={rows.length === 1} onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}>
+                          <DeleteOutlineRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
+          <Button variant="outlined" onClick={() => navigate('/inventory/adjustments')}>Cancel</Button>
+          <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>Submit for Approval</Button>
+        </Stack>
+      </Stack>
+    </Box>
+  );
+}

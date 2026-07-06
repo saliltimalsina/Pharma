@@ -1,0 +1,140 @@
+import { useParams, useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import Grid from '@mui/material/Grid';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import PageHeader from '../../components/PageHeader';
+import StatusChip from '../../components/StatusChip';
+import DetailTabs from '../../components/DetailTabs';
+import { useProcurement } from '../../store/ProcurementStore';
+
+function LabeledValue({ label, value }: { label: string; value?: string }) {
+  return (
+    <Box>
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{label}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 500 }}>{value || '—'}</Typography>
+    </Box>
+  );
+}
+
+export default function GRNDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { grns } = useProcurement();
+  const grn = grns.find((g) => g.id === id);
+
+  if (!grn) {
+    return (
+      <Box>
+        <Typography>GRN not found.</Typography>
+        <Button onClick={() => navigate('/procurement/grn')}>Back to list</Button>
+      </Box>
+    );
+  }
+
+  const overviewTab = (
+    <Grid container spacing={2}>
+      <Grid size={{ xs: 12, md: 8 }}>
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="subtitle2" gutterBottom>General Information</Typography>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="GRN Number" value={grn.grnNumber} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Purchase Order" value={grn.poNumber} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Vendor" value={grn.vendorName} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Warehouse" value={grn.warehouse} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Received Date" value={grn.receivedDate} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Received By" value={grn.receivedBy} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Delivery Note" value={grn.deliveryNote} /></Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      </Grid>
+      <Grid size={{ xs: 12, md: 4 }}>
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="subtitle2" gutterBottom>Status</Typography>
+            <StatusChip status={grn.status} />
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  );
+
+  const itemsTab = (
+    <Card variant="outlined">
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Product</TableCell>
+            <TableCell align="right">Ordered Qty</TableCell>
+            <TableCell align="right">Received Qty</TableCell>
+            <TableCell align="right">Accepted Qty</TableCell>
+            <TableCell align="right">Rejected Qty</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {grn.items.map((item, i) => (
+            <TableRow key={i} hover>
+              <TableCell sx={{ fontWeight: 500 }}>{item.product}</TableCell>
+              <TableCell align="right">{item.orderedQty}</TableCell>
+              <TableCell align="right">{item.receivedQty}</TableCell>
+              <TableCell align="right">{item.acceptedQty}</TableCell>
+              <TableCell align="right" sx={{ color: item.rejectedQty > 0 ? 'error.main' : undefined }}>{item.rejectedQty}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+
+  const batchTab = (
+    <Card variant="outlined">
+      <CardContent>
+        <Grid container spacing={2}>
+          {grn.items.map((item, i) => (
+            <Grid key={i} size={{ xs: 12, sm: 6, md: 4 }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" gutterBottom>{item.product}</Typography>
+                  <Stack spacing={1}>
+                    <LabeledValue label="Batch Number" value={item.batchNumber} />
+                    <LabeledValue label="Expiry Date" value={item.expiryDate} />
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
+      <PageHeader
+        title={grn.grnNumber}
+        subtitle={`${grn.vendorName} · ${grn.poNumber}`}
+        actions={
+          <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement/grn')}>Back</Button>
+        }
+      />
+      <DetailTabs
+        tabs={[
+          { label: 'Overview', content: overviewTab },
+          { label: 'Items', content: itemsTab },
+          { label: 'Batch Details', content: batchTab },
+        ]}
+      />
+    </Box>
+  );
+}

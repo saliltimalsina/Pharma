@@ -1,0 +1,26 @@
+import FormControl from '@mui/material/FormControl';
+import FormLabel from '@mui/material/FormLabel';
+import Select, { SelectProps } from '@mui/material/Select';
+
+export interface FormSelectFieldProps extends Omit<SelectProps<string>, 'id' | 'label'> {
+  label: string;
+  id?: string;
+}
+
+export default function FormSelectField({
+  label,
+  id,
+  fullWidth,
+  children,
+  ...rest
+}: FormSelectFieldProps) {
+  const inputId = id ?? `field-${label.toLowerCase().replace(/\s+/g, '-')}`;
+  return (
+    <FormControl fullWidth={fullWidth} size="small">
+      <FormLabel htmlFor={inputId}>{label}</FormLabel>
+      <Select id={inputId} size="small" {...rest}>
+        {children}
+      </Select>
+    </FormControl>
+  );
+}

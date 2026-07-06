@@ -1,0 +1,273 @@
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Button from '@mui/material/Button';
+import MenuItem from '@mui/material/MenuItem';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
+import Stack from '@mui/material/Stack';
+import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
+import { GridColDef } from '@mui/x-data-grid';
+import PageHeader from '../../components/PageHeader';
+import FilterBar from '../../components/FilterBar';
+import FilterSelect from '../../components/FilterSelect';
+import StatusChip from '../../components/StatusChip';
+import InventoryDataGrid from '../../components/InventoryDataGrid';
+import { ExpiryChip } from '../../components/expiryUtils';
+import { useInventory } from '../../store/InventoryStore';
+import { itemById, warehouseById, warehouses, categories } from '../../data/mockData';
+import { exportToCsv } from '../../../shared/exportCsv';
+
+interface ReserveTarget {
+  batchNumber: string;
+  warehouseId: string;
+  product: string;
+  availableQty: number;
+}
+
+function RowActions({ stockId, onReserve }: { stockId: string; onReserve: () => void }) {
+  const navigate = useNavigate();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+
+  return (
+    <>
+      <IconButton size="small" onClick={(e) => { e.stopPropagation(); setAnchor(e.currentTarget); }}>
+        <MoreVertRoundedIcon fontSize="small" />
+      </IconButton>
+      <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
+        <MenuItem onClick={() => { navigate(`/inventory/stock/${stockId}`); setAnchor(null); }}>View Details</MenuItem>
+        <MenuItem onClick={() => { navigate('/inventory/transfers/new'); setAnchor(null); }}>Transfer</MenuItem>
+        <MenuItem onClick={() => { navigate('/inventory/adjustments/new'); setAnchor(null); }}>Adjust Quantity</MenuItem>
+        <MenuItem onClick={() => { onReserve(); setAnchor(null); }}>Reserve Stock</MenuItem>
+        <MenuItem onClick={() => setAnchor(null)}>Print Barcode</MenuItem>
+        <MenuItem onClick={() => setAnchor(null)}>Print QR</MenuItem>
+      </Menu>
+    </>
+  );
+}
+
+export default function StockList() {
+  const navigate = useNavigate();
+  const { stockEntries, batches, reserveStock } = useInventory();
+  const [warehouse, setWarehouse] = useState('All');
+  const [category, setCategory] = useState('All');
+  const [stockLevel, setStockLevel] = useState('All');
+  const [reserveTarget, setReserveTarget] = useState<ReserveTarget | null>(null);
+  const [reserveQty, setReserveQty] = useState(0);
+
+  const rows = useMemo(
+    () =>
+      stockEntries
+        .map((s) => {
+          const item = itemById(s.itemId);
+          const total = s.availableQty + s.reservedQty;
+          const level = s.availableQty === 0 ? 'Out of Stock' : s.availableQty <= (item?.reorderLevel ?? 0) ? 'Low Stock' : 'In Stock';
+          return {
+            id: s.id,
+            product: item?.name ?? '—',
+            sku: item?.sku ?? '—',
+            category: item?.category ?? '—',
+            batchNumber: s.batchNumber,
+            warehouseId: s.warehouseId,
+            warehouse: warehouseById(s.warehouseId)?.name ?? '—',
+            bin: s.bin,
+            availableQty: s.availableQty,
+            reservedQty: s.reservedQty,
+            totalQty: total,
+            expiryDate: s.expiryDate,
+            status: level,
+          };
+        })
+        .filter((r) => warehouse === 'All' || r.warehouseId === warehouse)
+        .filter((r) => category === 'All' || r.category === category)
+        .filter((r) => stockLevel === 'All' || r.status === stockLevel),
+    [stockEntries, warehouse, category, stockLevel],
+  );
+
+  type StockRow = (typeof rows)[number];
+
+  const openReserve = (row: StockRow) => {
+    setReserveTarget({
+      batchNumber: row.batchNumber,
+      warehouseId: row.warehouseId,
+      product: row.product,
+      availableQty: row.availableQty,
+    });
+    setReserveQty(0);
+  };
+
+  const confirmReserve = () => {
+    if (reserveTarget && reserveQty > 0) {
+      const batch = batches.find(
+        (b) => b.batchNumber === reserveTarget.batchNumber && b.warehouseId === reserveTarget.warehouseId,
+      );
+      if (batch) reserveStock(batch.id, reserveQty);
+    }
+    setReserveTarget(null);
+  };
+
+  const handleExport = () => {
+    exportToCsv(
+      'stock',
+      [
+        { header: 'Product', accessor: (r) => r.product },
+        { header: 'SKU', accessor: (r) => r.sku },
+        { header: 'Batch', accessor: (r) => r.batchNumber },
+        { header: 'Warehouse', accessor: (r) => r.warehouse },
+        { header: 'Location', accessor: (r) => r.bin },
+        { header: 'Available Qty', accessor: (r) => r.availableQty },
+        { header: 'Reserved Qty', accessor: (r) => r.reservedQty },
+        { header: 'Total Qty', accessor: (r) => r.totalQty },
+        { header: 'Expiry Date', accessor: (r) => r.expiryDate },
+        { header: 'Status', accessor: (r) => r.status },
+      ],
+      rows,
+    );
+  };
+
+  const columns: GridColDef[] = [
+    {
+      field: 'product',
+      headerName: 'Product',
+      flex: 1.3,
+      minWidth: 200,
+    },
+    { field: 'sku', headerName: 'SKU', flex: 0.7, minWidth: 100 },
+    { field: 'batchNumber', headerName: 'Batch', flex: 0.8, minWidth: 120 },
+    { field: 'warehouse', headerName: 'Warehouse', flex: 1, minWidth: 140 },
+    { field: 'bin', headerName: 'Location', flex: 1, minWidth: 150 },
+    {
+      field: 'availableQty',
+      headerName: 'Available Qty',
+      minWidth: 120,
+      headerAlign: 'right',
+      align: 'right',
+      valueFormatter: (value: number) => value.toLocaleString(),
+    },
+    {
+      field: 'reservedQty',
+      headerName: 'Reserved Qty',
+      minWidth: 120,
+      headerAlign: 'right',
+      align: 'right',
+      valueFormatter: (value: number) => value.toLocaleString(),
+    },
+    {
+      field: 'totalQty',
+      headerName: 'Total Qty',
+      minWidth: 110,
+      headerAlign: 'right',
+      align: 'right',
+      valueFormatter: (value: number) => value.toLocaleString(),
+    },
+    {
+      field: 'expiryDate',
+      headerName: 'Expiry Date',
+      minWidth: 140,
+      renderCell: (params) => <ExpiryChip dateStr={params.value} />,
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      minWidth: 130,
+      renderCell: (params) => <StatusChip status={params.value} />,
+    },
+    {
+      field: 'actions',
+      headerName: '',
+      width: 60,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => <RowActions stockId={params.id as string} onReserve={() => openReserve(params.row as StockRow)} />,
+    },
+  ];
+
+  return (
+    <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
+      <PageHeader
+        title="Stock"
+        subtitle="Live inventory — one row per batch in one warehouse"
+        actions={
+          <>
+            <Button variant="outlined" startIcon={<FileDownloadRoundedIcon />} onClick={handleExport}>Export</Button>
+            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/inventory/stock/new')}>Stock In</Button>
+          </>
+        }
+      />
+
+      <FilterBar>
+        <FilterSelect value={warehouse} onChange={(e) => setWarehouse(e.target.value)} sx={{ minWidth: 180 }}>
+          <MenuItem value="All">All Warehouses</MenuItem>
+          {warehouses.map((w) => (
+            <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
+          ))}
+        </FilterSelect>
+        <FilterSelect value={category} onChange={(e) => setCategory(e.target.value)} sx={{ minWidth: 160 }}>
+          <MenuItem value="All">All Categories</MenuItem>
+          {categories.map((c) => (
+            <MenuItem key={c} value={c}>{c}</MenuItem>
+          ))}
+        </FilterSelect>
+        <FilterSelect value={stockLevel} onChange={(e) => setStockLevel(e.target.value)} sx={{ minWidth: 160 }}>
+          <MenuItem value="All">All Stock Levels</MenuItem>
+          <MenuItem value="In Stock">In Stock</MenuItem>
+          <MenuItem value="Low Stock">Low Stock</MenuItem>
+          <MenuItem value="Out of Stock">Out of Stock</MenuItem>
+        </FilterSelect>
+      </FilterBar>
+
+      <Card variant="outlined" sx={{ height: 560 }}>
+        <InventoryDataGrid
+          rows={rows}
+          columns={columns}
+          onRowClick={(params) => navigate(`/inventory/stock/${params.id}`)}
+          sx={{ cursor: 'pointer' }}
+        />
+      </Card>
+
+      <Dialog open={!!reserveTarget} onClose={() => setReserveTarget(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Reserve Stock</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Product"
+              value={reserveTarget?.product ?? ''}
+              size="small"
+              fullWidth
+              disabled
+            />
+            <TextField
+              label="Batch"
+              value={reserveTarget?.batchNumber ?? ''}
+              size="small"
+              fullWidth
+              disabled
+            />
+            <TextField
+              label="Quantity to reserve"
+              type="number"
+              value={reserveQty}
+              onChange={(e) => setReserveQty(Number(e.target.value))}
+              size="small"
+              fullWidth
+              autoFocus
+              helperText={reserveTarget ? `${reserveTarget.availableQty.toLocaleString()} available` : ''}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReserveTarget(null)}>Cancel</Button>
+          <Button variant="contained" disabled={reserveQty <= 0} onClick={confirmReserve}>Reserve</Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}
