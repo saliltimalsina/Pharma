@@ -66,6 +66,7 @@ function App() {
               <Route element={<Dashboard />}>
                 <Route index element={<ProcurementDashboard />} />
                 <Route path="dashboard" element={<ProcurementDashboard />} />
+                <Route path="procurement" element={<ProcurementDashboard />} />
 
                 <Route path="procurement/requisitions" element={<RequisitionList />} />
                 <Route path="procurement/requisitions/new" element={<RequisitionForm />} />
