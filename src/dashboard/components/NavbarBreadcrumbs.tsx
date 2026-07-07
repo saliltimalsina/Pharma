@@ -23,6 +23,7 @@ const COMMON_LABELS: Record<string, string> = {
 
 const PROCUREMENT_LABELS: Record<string, string> = {
   procurement: 'Procurement',
+  'guided-purchase': 'Guided Purchase',
   requisitions: 'Material Requisition',
   vendors: 'Vendors',
   rfqs: 'RFQs',

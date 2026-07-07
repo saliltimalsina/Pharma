@@ -31,6 +31,7 @@ const mainListItems: NavItem[] = [
     icon: <ShoppingCartRoundedIcon />,
     children: [
       { text: 'Dashboard', path: '/procurement', exact: true },
+      { text: 'Guided Purchase', path: '/procurement/guided-purchase' },
       { text: 'Material Requisition', path: '/procurement/requisitions' },
       { text: 'Vendors', path: '/procurement/vendors' },
       { text: 'RFQs', path: '/procurement/rfqs' },

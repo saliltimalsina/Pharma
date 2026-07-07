@@ -20,6 +20,7 @@ import GRNList from './procurement/pages/grn/GRNList';
 import GRNForm from './procurement/pages/grn/GRNForm';
 import GRNDetail from './procurement/pages/grn/GRNDetail';
 import ProcurementReports from './procurement/pages/reports/ProcurementReports';
+import ProcurementWizard from './procurement/pages/wizard/ProcurementWizard';
 import InventoryDashboard from './inventory/pages/dashboard/InventoryDashboard';
 import ItemList from './inventory/pages/items/ItemList';
 import ItemForm from './inventory/pages/items/ItemForm';
@@ -79,6 +80,7 @@ function App() {
                 <Route index element={<ProcurementDashboard />} />
                 <Route path="dashboard" element={<ProcurementDashboard />} />
                 <Route path="procurement" element={<ProcurementDashboard />} />
+                <Route path="procurement/guided-purchase" element={<ProcurementWizard />} />
 
                 <Route path="procurement/requisitions" element={<RequisitionList />} />
                 <Route path="procurement/requisitions/new" element={<RequisitionForm />} />

@@ -256,7 +256,7 @@ export default function POForm() {
                   </Stack>
                   <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                     <Typography variant="body2">Discount</Typography>
-                    <Typography variant="body2">-${discountTotal.toFixed(2)}</Typography>
+                    <Typography variant="body2">-NPR {discountTotal.toFixed(2)}</Typography>
                   </Stack>
                   <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                     <Typography variant="body2">VAT</Typography>
