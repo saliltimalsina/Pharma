@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -18,17 +18,12 @@ import TableRow from '@mui/material/TableRow';
 import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
-import Typography from '@mui/material/Typography';
-import Divider from '@mui/material/Divider';
-import Chip from '@mui/material/Chip';
 import Avatar from '@mui/material/Avatar';
 import Checkbox from '@mui/material/Checkbox';
-import Alert from '@mui/material/Alert';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
-import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
@@ -48,32 +43,19 @@ function blankItem(): ItemRow {
   return { key: rowId, item: '', description: '', requiredQty: 0, unit: 'kg', currentStock: 0, requiredDate: '', remarks: '' };
 }
 
-type QuoteDraft = { price: string; deliveryDays: string; paymentTerms: string; qualityRating: string; submitted: boolean };
-const BLANK_QUOTE_DRAFT: QuoteDraft = { price: '', deliveryDays: '', paymentTerms: '', qualityRating: '', submitted: false };
+const STEPS = ['Request Materials', 'Get Quotes'];
 
-function scoreOf(d: QuoteDraft): number {
-  if (!d.submitted) return 0;
-  const price = Number(d.price) || 0;
-  const delivery = Number(d.deliveryDays) || 0;
-  const quality = Number(d.qualityRating) || 0;
-  // Lower price/delivery is better; this is a single-vendor-friendly rough score, not the
-  // multi-vendor normalised score the real RFQ store computes once quotes are submitted.
-  const priceScore = price > 0 ? Math.max(0, 1 - price / (price + 1000)) : 0;
-  const deliveryScore = delivery > 0 ? Math.max(0, 1 - delivery / 30) : 0;
-  const qualityScore = Math.max(0, Math.min(1, quality / 5));
-  return Math.round((0.4 * priceScore + 0.3 * deliveryScore + 0.3 * qualityScore) * 100);
-}
-
-const STEPS = ['Request Materials', 'Get Quotes', 'Award & Purchase Order', 'Review & Create'];
-
+// Real vendor quotes come back over hours or days, not in one sitting — so this wizard's
+// job ends at sending the RFQ. Entering quotes, awarding a vendor, and creating the PO
+// happen later, whenever quotes actually arrive, on the RFQ's own detail page.
 export default function ProcurementWizard() {
   const navigate = useNavigate();
-  const { vendors, addRequisition, approveRequisition, addRfq, submitQuote, awardRfq, addPurchaseOrder } = useProcurement();
+  const { vendors, addRequisition, approveRequisition, addRfq } = useProcurement();
 
   const today = new Date().toISOString().slice(0, 10);
   const [activeStep, setActiveStep] = useState(0);
 
-  // Step 1 — Request Materials (becomes the Requisition, and the item list every later step reuses)
+  // Step 1 — Request Materials (becomes the Requisition, and the item list Get Quotes reuses)
   const [department, setDepartment] = useState(departments[0]);
   const [requester, setRequester] = useState('Riley Carter');
   const [requiredDate, setRequiredDate] = useState('');
@@ -89,62 +71,18 @@ export default function ProcurementWizard() {
   const [category, setCategory] = useState<VendorCategory>(categories[0]);
   const [closingDate, setClosingDate] = useState('');
   const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
-  const [quotes, setQuotes] = useState<Record<string, QuoteDraft>>({});
 
   const toggleVendor = (id: string) =>
     setSelectedVendors((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
 
-  const updateQuote = (vendorId: string, field: 'price' | 'deliveryDays' | 'paymentTerms' | 'qualityRating', value: string) =>
-    setQuotes((prev) => ({
-      ...prev,
-      [vendorId]: { ...(prev[vendorId] ?? BLANK_QUOTE_DRAFT), [field]: value },
-    }));
-
-  const submitVendorQuote = (vendorId: string) =>
-    setQuotes((prev) => ({ ...prev, [vendorId]: { ...prev[vendorId], submitted: true } }));
-
-  // Step 3 — Award & Purchase Order
-  const [awardedVendorId, setAwardedVendorId] = useState<string | null>(null);
-  const [warehouse, setWarehouse] = useState('Main Warehouse - WH01');
-  const [expectedDelivery, setExpectedDelivery] = useState('');
-  const [shipping, setShipping] = useState(0);
-
-  const submittedQuotes = selectedVendors
-    .map((vid) => ({ vendorId: vid, draft: quotes[vid] }))
-    .filter((q) => q.draft?.submitted);
-  const bestVendorId = submittedQuotes.length
-    ? submittedQuotes.reduce((best, q) => (scoreOf(q.draft) > scoreOf(best.draft) ? q : best), submittedQuotes[0]).vendorId
-    : null;
-  const awardedQuote = awardedVendorId ? quotes[awardedVendorId] : undefined;
-  const awardedVendorName = vendors.find((v) => v.id === awardedVendorId)?.name ?? '';
-  const unitPrice = Number(awardedQuote?.price) || 0;
-
-  const poItems = useMemo(
-    () =>
-      items.map((it) => ({
-        product: it.item,
-        description: it.description,
-        qty: it.requiredQty,
-        unit: it.unit,
-        unitPrice,
-        discount: 0,
-        vat: 0,
-      })),
-    [items, unitPrice],
-  );
-
-  const subtotal = poItems.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
-  const grandTotal = subtotal + shipping;
-
-  // Validation gates — Next stays disabled until the step's minimum viable info is filled.
+  // Validation gates — Next/Send RFQ stays disabled until the step's minimum viable info is filled.
   const step0Valid = department !== '' && requester.trim() !== '' && purpose.trim() !== '' && items.some((it) => it.item.trim() !== '');
   const step1Valid = title.trim() !== '' && closingDate !== '' && selectedVendors.length > 0;
-  const step2Valid = awardedVendorId !== null && expectedDelivery !== '';
-  const canFinish = step0Valid && step1Valid && step2Valid;
+  const stepValid = [step0Valid, step1Valid][activeStep];
 
-  const stepValid = [step0Valid, step1Valid, step2Valid, canFinish][activeStep];
+  const sendRfq = () => {
+    const cleanItems: RequisitionItem[] = items.map(({ key: _key, ...rest }) => rest);
 
-  const finish = () => {
     const reqId = addRequisition(
       {
         department,
@@ -153,13 +91,12 @@ export default function ProcurementWizard() {
         requiredDate,
         priority,
         purpose,
-        items: items.map(({ key: _key, ...rest }) => rest),
+        items: cleanItems,
       },
       true,
     );
     approveRequisition(reqId, APPROVER);
 
-    const cleanItems: RequisitionItem[] = items.map(({ key: _key, ...rest }) => rest);
     const rfqId = addRfq(
       {
         title,
@@ -172,35 +109,7 @@ export default function ProcurementWizard() {
       },
       true,
     );
-    submittedQuotes.forEach(({ vendorId, draft }) => {
-      const vendorName = vendors.find((v) => v.id === vendorId)?.name ?? vendorId;
-      submitQuote(rfqId, {
-        vendorId,
-        vendorName,
-        price: Number(draft.price) || 0,
-        deliveryDays: Number(draft.deliveryDays) || 0,
-        paymentTerms: draft.paymentTerms,
-        qualityRating: Number(draft.qualityRating) || 0,
-      });
-    });
-    if (awardedVendorId) awardRfq(rfqId, awardedVendorId);
-
-    const poId = addPurchaseOrder(
-      {
-        vendorId: awardedVendorId ?? '',
-        vendorName: awardedVendorName,
-        date: today,
-        expectedDelivery,
-        currency: 'NPR',
-        warehouse,
-        department,
-        amount: grandTotal,
-        createdBy: APPROVER,
-        items: poItems,
-      },
-      true,
-    );
-    navigate(`/procurement/purchase-orders/${poId}`);
+    navigate(`/procurement/rfqs/${rfqId}`);
   };
 
   const requestStep = (
@@ -348,154 +257,13 @@ export default function ProcurementWizard() {
     </Stack>
   );
 
-  const awardStep = (
-    <Stack spacing={2}>
-      {selectedVendors.length === 0 ? (
-        <Alert severity="warning">Go back and select at least one vendor first.</Alert>
-      ) : (
-        <Card variant="outlined">
-          <CardHeader title="3. Enter each vendor's quote, then award" slotProps={{ title: { variant: 'subtitle2' } }} />
-          <CardContent sx={{ pt: 0 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Vendor</TableCell>
-                  <TableCell width={110} align="right">Price (NPR)</TableCell>
-                  <TableCell width={110} align="right">Delivery (days)</TableCell>
-                  <TableCell width={130}>Payment Terms</TableCell>
-                  <TableCell width={110} align="right">Quality (0–5)</TableCell>
-                  <TableCell width={200} align="right">Action</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {selectedVendors.map((vid) => {
-                  const v = vendors.find((vend) => vend.id === vid);
-                  const d = quotes[vid] ?? { price: '', deliveryDays: '', paymentTerms: '', qualityRating: '', submitted: false };
-                  const valid = d.price !== '' && d.deliveryDays !== '' && d.qualityRating !== '';
-                  const isBest = d.submitted && vid === bestVendorId;
-                  const isAwarded = vid === awardedVendorId;
-                  return (
-                    <TableRow key={vid} selected={isAwarded}>
-                      <TableCell>
-                        <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
-                          <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>{v?.name.charAt(0)}</Avatar>
-                          {v?.name ?? vid}
-                          {isBest && <Chip size="small" color="success" label="Best score" />}
-                          {isAwarded && <Chip size="small" color="primary" icon={<EmojiEventsRoundedIcon />} label="Awarded" />}
-                        </Stack>
-                      </TableCell>
-                      <TableCell align="right"><TextField variant="standard" type="number" value={d.price} onChange={(e) => updateQuote(vid, 'price', e.target.value)} sx={{ width: 90 }} /></TableCell>
-                      <TableCell align="right"><TextField variant="standard" type="number" value={d.deliveryDays} onChange={(e) => updateQuote(vid, 'deliveryDays', e.target.value)} sx={{ width: 90 }} /></TableCell>
-                      <TableCell><TextField variant="standard" placeholder="Net 30" value={d.paymentTerms} onChange={(e) => updateQuote(vid, 'paymentTerms', e.target.value)} sx={{ width: 110 }} /></TableCell>
-                      <TableCell align="right"><TextField variant="standard" type="number" value={d.qualityRating} onChange={(e) => updateQuote(vid, 'qualityRating', e.target.value)} sx={{ width: 80 }} /></TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                          <Button size="small" variant={d.submitted ? 'outlined' : 'contained'} disabled={!valid} onClick={() => submitVendorQuote(vid)}>
-                            {d.submitted ? 'Update' : 'Submit'}
-                          </Button>
-                          <Button size="small" variant={isAwarded ? 'contained' : 'outlined'} color="success" disabled={!d.submitted} onClick={() => setAwardedVendorId(vid)}>
-                            Award
-                          </Button>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {awardedVendorId && (
-        <Card variant="outlined">
-          <CardHeader title="Purchase order details" slotProps={{ title: { variant: 'subtitle2' } }} />
-          <CardContent sx={{ pt: 0 }}>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" label="Vendor" value={awardedVendorName} disabled />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth size="small" label="Warehouse" value={warehouse} onChange={(e) => setWarehouse(e.target.value)}>
-                  {['Main Warehouse - WH01', 'Packaging Store - WH03', 'Maintenance Store - WH04', 'QC Lab - WH05'].map((w) => (
-                    <MenuItem key={w} value={w}>{w}</MenuItem>
-                  ))}
-                </FormSelectField>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" type="date" label="Expected Delivery" value={expectedDelivery} onChange={(e) => setExpectedDelivery(e.target.value)} />
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      )}
-    </Stack>
-  );
-
-  const reviewStep = (
-    <Stack spacing={2}>
-      <Card variant="outlined">
-        <CardHeader title="4. Review before creating" slotProps={{ title: { variant: 'subtitle2' } }} />
-        <CardContent sx={{ pt: 0 }}>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" sx={{ color: 'text.secondary' }}>Department</Typography><Typography variant="body2">{department}</Typography></Grid>
-            <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" sx={{ color: 'text.secondary' }}>Requester</Typography><Typography variant="body2">{requester}</Typography></Grid>
-            <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" sx={{ color: 'text.secondary' }}>Vendor</Typography><Typography variant="body2">{awardedVendorName}</Typography></Grid>
-            <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" sx={{ color: 'text.secondary' }}>Expected Delivery</Typography><Typography variant="body2">{expectedDelivery || '—'}</Typography></Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-
-      <Card variant="outlined">
-        <CardHeader title="Items & Total" slotProps={{ title: { variant: 'subtitle2' } }} />
-        <CardContent sx={{ pt: 0 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>Item</TableCell>
-                <TableCell align="right">Qty</TableCell>
-                <TableCell>Unit</TableCell>
-                <TableCell align="right">Unit Price</TableCell>
-                <TableCell align="right">Line Total</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {poItems.map((it, i) => (
-                <TableRow key={i}>
-                  <TableCell>{it.product}</TableCell>
-                  <TableCell align="right">{it.qty}</TableCell>
-                  <TableCell>{it.unit}</TableCell>
-                  <TableCell align="right">NPR {it.unitPrice.toLocaleString()}</TableCell>
-                  <TableCell align="right">NPR {(it.qty * it.unitPrice).toLocaleString()}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <Divider sx={{ my: 1.5 }} />
-          <Stack sx={{ alignItems: 'flex-end', gap: 0.5 }}>
-            <Stack direction="row" sx={{ gap: 2 }}>
-              <Typography variant="body2">Shipping</Typography>
-              <TextField variant="standard" type="number" size="small" value={shipping} onChange={(e) => setShipping(Number(e.target.value))} sx={{ width: 100 }} />
-            </Stack>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Grand Total: NPR {grandTotal.toLocaleString()}</Typography>
-          </Stack>
-        </CardContent>
-      </Card>
-
-      <Alert severity="info">
-        Clicking "Create Purchase Order" will auto-create and approve the requisition, send the RFQ, record the
-        awarded vendor's quote, and issue the purchase order — all in one go.
-      </Alert>
-    </Stack>
-  );
-
-  const stepContent = [requestStep, quotesStep, awardStep, reviewStep][activeStep];
+  const stepContent = [requestStep, quotesStep][activeStep];
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1400px' } }}>
       <PageHeader
         title="Guided Purchase"
-        subtitle="One flow from material request to purchase order"
+        subtitle="Request materials and send an RFQ to vendors in one go"
         actions={
           <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement')}>
             Cancel
@@ -533,8 +301,8 @@ export default function ProcurementWizard() {
             Next
           </Button>
         ) : (
-          <Button variant="contained" color="success" disabled={!canFinish} onClick={finish}>
-            Create Purchase Order
+          <Button variant="contained" color="success" disabled={!stepValid} onClick={sendRfq}>
+            Send RFQ
           </Button>
         )}
       </Stack>
