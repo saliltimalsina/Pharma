@@ -8,14 +8,28 @@ export interface DetailTabItem {
   content: React.ReactNode;
 }
 
-export default function DetailTabs({ tabs }: { tabs: DetailTabItem[] }) {
-  const [value, setValue] = React.useState(0);
+export interface DetailTabsProps {
+  tabs: DetailTabItem[];
+  // Optional external control, so a caller can e.g. jump to a specific tab from a
+  // banner button. Uncontrolled (internal state) when omitted.
+  activeTab?: number;
+  onTabChange?: (index: number) => void;
+}
+
+export default function DetailTabs({ tabs, activeTab, onTabChange }: DetailTabsProps) {
+  const [internalValue, setInternalValue] = React.useState(0);
+  const value = activeTab ?? internalValue;
+
+  const handleChange = (_: React.SyntheticEvent, v: number) => {
+    setInternalValue(v);
+    onTabChange?.(v);
+  };
 
   return (
     <Box>
       <Tabs
         value={value}
-        onChange={(_, v) => setValue(v)}
+        onChange={handleChange}
         sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
       >
         {tabs.map((tab, i) => (

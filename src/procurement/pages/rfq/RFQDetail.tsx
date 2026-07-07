@@ -19,6 +19,7 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
+import Alert from '@mui/material/Alert';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import PageHeader from '../../components/PageHeader';
@@ -26,6 +27,8 @@ import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useProcurement } from '../../store/ProcurementStore';
 import type { Rfq, Vendor } from '../../data/types';
+
+const TAB_INDEX = { overview: 0, items: 1, invited: 2, quotations: 3, comparison: 4, award: 5 };
 
 function LabeledValue({ label, value }: { label: string; value?: string }) {
   return (
@@ -129,6 +132,7 @@ export default function RFQDetail() {
   const navigate = useNavigate();
   const { rfqs, vendors, submitQuote, awardRfq } = useProcurement();
   const rfq = rfqs.find((r) => r.id === id);
+  const [activeTab, setActiveTab] = useState(0);
 
   if (!rfq) {
     return (
@@ -143,6 +147,51 @@ export default function RFQDetail() {
   const bestQuote = submittedQuotes.length
     ? submittedQuotes.reduce((best, q) => (q.score > best.score ? q : best), submittedQuotes[0])
     : undefined;
+  const awardedQuote = rfq.awardedVendor ? submittedQuotes.find((q) => q.vendorId === rfq.awardedVendor) : undefined;
+
+  // Always-visible "what's next" banner — shown above the tabs regardless of which
+  // tab is open, so the next action is never buried behind a tab you happen not to be on.
+  const nextStepBanner = rfq.awardedVendor ? (
+    <Alert
+      severity="success"
+      action={
+        <Button
+          color="inherit"
+          size="small"
+          variant="outlined"
+          onClick={() => navigate(`/procurement/purchase-orders/new?fromRfq=${rfq.id}`)}
+        >
+          Create Purchase Order
+        </Button>
+      }
+    >
+      Awarded to <strong>{vendors.find((v) => v.id === rfq.awardedVendor)?.name}</strong> — ready to create the purchase order.
+    </Alert>
+  ) : submittedQuotes.length === 0 ? (
+    <Alert
+      severity="info"
+      action={
+        <Button color="inherit" size="small" variant="outlined" onClick={() => setActiveTab(TAB_INDEX.quotations)}>
+          Go to Quotations
+        </Button>
+      }
+    >
+      Waiting on vendor quotes — enter each one on the Quotations tab as it arrives. Vendors don't quote in real
+      time, so come back to this whenever a vendor gets back to you.
+    </Alert>
+  ) : (
+    <Alert
+      severity="info"
+      action={
+        <Button color="inherit" size="small" variant="outlined" onClick={() => setActiveTab(TAB_INDEX.comparison)}>
+          Go to Comparison
+        </Button>
+      }
+    >
+      {submittedQuotes.length} of {rfq.invitedVendors.length} vendor{rfq.invitedVendors.length === 1 ? '' : 's'} have
+      quoted. Compare and award whenever you're ready — you don't need every vendor to respond.
+    </Alert>
+  );
 
   const handleSubmitQuote = (vendorId: string, vendorName: string, draft: QuoteDraft) => {
     submitQuote(rfq.id, {
@@ -256,67 +305,63 @@ export default function RFQDetail() {
               <TableCell align="right">Quality Rating</TableCell>
               <TableCell>Payment Terms</TableCell>
               <TableCell align="right">Score</TableCell>
+              <TableCell align="right">Action</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {submittedQuotes.length === 0 && (
-              <TableRow><TableCell colSpan={6} align="center" sx={{ color: 'text.secondary' }}>No quotes submitted yet — enter them in the Quotations tab</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} align="center" sx={{ color: 'text.secondary' }}>No quotes submitted yet — enter them in the Quotations tab</TableCell></TableRow>
             )}
-            {submittedQuotes.map((q) => (
-              <TableRow
-                key={q.vendorId}
-                hover
-                sx={q.vendorId === bestQuote?.vendorId ? { bgcolor: 'action.selected' } : undefined}
-              >
-                <TableCell sx={{ fontWeight: 500 }}>
-                  <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
-                    {q.vendorId === bestQuote?.vendorId && (
-                      <EmojiEventsRoundedIcon fontSize="small" color="warning" />
-                    )}
-                    {q.vendorName}
-                  </Stack>
-                </TableCell>
-                <TableCell align="right">{q.price}</TableCell>
-                <TableCell align="right">{q.deliveryDays}</TableCell>
-                <TableCell align="right">{q.qualityRating}</TableCell>
-                <TableCell>{q.paymentTerms}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>{q.score}</TableCell>
-              </TableRow>
-            ))}
+            {submittedQuotes.map((q) => {
+              const isRecommended = q.vendorId === bestQuote?.vendorId;
+              const isAwarded = q.vendorId === rfq.awardedVendor;
+              return (
+                <TableRow key={q.vendorId} hover selected={isAwarded}>
+                  <TableCell sx={{ fontWeight: 500 }}>
+                    <Stack direction="row" sx={{ alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      {q.vendorName}
+                      {isRecommended && <Chip size="small" color="success" label="Recommended" />}
+                    </Stack>
+                  </TableCell>
+                  <TableCell align="right">{q.price}</TableCell>
+                  <TableCell align="right">{q.deliveryDays}</TableCell>
+                  <TableCell align="right">{q.qualityRating}</TableCell>
+                  <TableCell>{q.paymentTerms}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>{q.score}</TableCell>
+                  <TableCell align="right">
+                    <Button
+                      size="small"
+                      variant={isAwarded ? 'contained' : 'outlined'}
+                      color="success"
+                      startIcon={isAwarded ? <EmojiEventsRoundedIcon /> : undefined}
+                      onClick={() => awardRfq(rfq.id, q.vendorId)}
+                    >
+                      {isAwarded ? 'Awarded' : 'Award'}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </Card>
 
-      {bestQuote && (
+      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        "Recommended" is just a suggestion based on price, delivery time and quality — award whichever vendor you
+        actually want, even if it isn't the top score.
+      </Typography>
+
+      {awardedQuote && (
         <Card variant="outlined" sx={{ borderColor: 'success.main' }}>
           <CardContent>
             <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { sm: 'center' }, gap: 2 }}>
               <Box>
-                <Typography variant="subtitle2" sx={{ color: 'success.main' }}>Recommended Vendor</Typography>
-                <Typography variant="h6">{bestQuote.vendorName}</Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Highest overall score ({bestQuote.score}) — best balance of price, delivery time and quality rating.
-                </Typography>
+                <Typography variant="subtitle2" sx={{ color: 'success.main' }}>Awarded Vendor</Typography>
+                <Typography variant="h6">{awardedQuote.vendorName}</Typography>
               </Box>
-              <Stack direction="row" sx={{ gap: 1.5, flexWrap: 'wrap' }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<EmojiEventsRoundedIcon />}
-                  disabled={rfq.status === 'Awarded'}
-                  onClick={() => awardRfq(rfq.id, bestQuote.vendorId)}
-                >
-                  {rfq.status === 'Awarded' ? 'Awarded' : 'Award Vendor'}
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    if (rfq.status !== 'Awarded') awardRfq(rfq.id, bestQuote.vendorId);
-                    navigate(`/procurement/purchase-orders/new?fromRfq=${rfq.id}`);
-                  }}
-                >
-                  Generate Purchase Order
-                </Button>
-              </Stack>
+              <Button variant="contained" onClick={() => navigate(`/procurement/purchase-orders/new?fromRfq=${rfq.id}`)}>
+                Generate Purchase Order
+              </Button>
             </Stack>
           </CardContent>
         </Card>
@@ -336,7 +381,7 @@ export default function RFQDetail() {
             />
           </ListItem>
         ) : (
-          <ListItem><ListItemText primary="Not awarded yet" secondary="Use Award Vendor in the Comparison tab to award this RFQ" /></ListItem>
+          <ListItem><ListItemText primary="Not awarded yet" secondary="Use the Award button on the Comparison tab to award this RFQ" /></ListItem>
         )}
       </List>
     </Card>
@@ -351,7 +396,10 @@ export default function RFQDetail() {
           <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement/rfqs')}>Back</Button>
         }
       />
+      <Box sx={{ mb: 2 }}>{nextStepBanner}</Box>
       <DetailTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         tabs={[
           { label: 'Overview', content: overviewTab },
           { label: 'Items', content: itemsTab },
