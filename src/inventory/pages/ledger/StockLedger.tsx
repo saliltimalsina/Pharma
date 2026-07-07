@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
@@ -18,10 +19,20 @@ import { itemById, warehouseById, warehouses } from '../../data/mockData';
 import { exportToCsv } from '../../../shared/exportCsv';
 
 export default function StockLedger() {
-  const { items, movements } = useInventory();
-  const [itemId, setItemId] = useState(items[0]?.id ?? '');
+  const { items, movements, batches } = useInventory();
+  const [searchParams] = useSearchParams();
+  const itemParam = searchParams.get('item');
+  const batchParam = searchParams.get('batch');
+  // Pre-select from deep links: ?item=<id> selects that product; ?batch=<number>
+  // selects the batch and the product that owns it.
+  const initialItemId =
+    (itemParam && items.some((it) => it.id === itemParam) ? itemParam : '') ||
+    (batchParam ? batches.find((b) => b.batchNumber === batchParam)?.itemId ?? '' : '') ||
+    items[0]?.id ||
+    '';
+  const [itemId, setItemId] = useState(initialItemId);
   const [warehouse, setWarehouse] = useState('All');
-  const [batch, setBatch] = useState('All');
+  const [batch, setBatch] = useState(batchParam ?? 'All');
 
   // Batch numbers available for the selected item (drives the batch filter).
   const batchNumbers = useMemo(

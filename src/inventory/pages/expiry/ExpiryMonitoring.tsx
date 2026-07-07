@@ -68,6 +68,7 @@ const columns: GridColDef[] = [
 ];
 
 export default function ExpiryMonitoring() {
+  const navigate = useNavigate();
   const { batches } = useInventory();
 
   const rows = useMemo(
@@ -134,7 +135,12 @@ export default function ExpiryMonitoring() {
       </Grid>
 
       <Card variant="outlined" sx={{ height: 500 }}>
-        <InventoryDataGrid rows={rows} columns={columns} />
+        <InventoryDataGrid
+          rows={rows}
+          columns={columns}
+          onRowClick={(params) => navigate(`/inventory/batches/${params.id}`)}
+          sx={{ cursor: 'pointer' }}
+        />
       </Card>
     </Box>
   );

@@ -158,7 +158,7 @@ export default function StockDetail() {
   const batchTab = (
     <Card variant="outlined">
       <CardContent>
-        <Button variant="text" onClick={() => navigate(`/inventory/batches?search=${stock.batchNumber}`)}>
+        <Button variant="text" disabled={!batch} onClick={() => batch && navigate(`/inventory/batches/${batch.id}`)}>
           View full batch record →
         </Button>
         <Grid container spacing={2} sx={{ mt: 1 }}>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Stack from '@mui/material/Stack';
@@ -29,14 +30,28 @@ function ExportBar({ onExport }: { onExport: () => void }) {
 
 export default function InventoryReports() {
   const { items, batches, movements } = useInventory();
+  const [stockWarehouse, setStockWarehouse] = useState('all');
   const expirySorted = [...batches].sort((a, b) => daysUntil(a.expiryDate) - daysUntil(b.expiryDate));
   // Movement / audit views: newest first, straight off the ledger.
   const movementsDesc = [...movements].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id.localeCompare(a.id)));
 
+  // Stock report rows, scoped to the selected warehouse. An item shows only if it has
+  // batch stock in that warehouse, and its quantities/valuation reflect that warehouse.
+  const stockRows = items
+    .map((it) => {
+      const itemBatches = batches.filter(
+        (b) => b.itemId === it.id && (stockWarehouse === 'all' || b.warehouseId === stockWarehouse),
+      );
+      const available = itemBatches.reduce((s, b) => s + b.availableQty, 0);
+      const reserved = itemBatches.reduce((s, b) => s + b.reservedQty, 0);
+      return { item: it, available, reserved, valuation: Math.round(available * it.averageCost), hasStock: itemBatches.length > 0 };
+    })
+    .filter((r) => stockWarehouse === 'all' || r.hasStock);
+
   const stockTab = (
     <Stack spacing={2}>
       <FilterBar>
-        <FilterSelect defaultValue="all" sx={{ minWidth: 180 }}>
+        <FilterSelect value={stockWarehouse} onChange={(e) => setStockWarehouse(e.target.value)} sx={{ minWidth: 180 }}>
           <MenuItem value="all">All Warehouses</MenuItem>
           {warehouses.map((w) => (
             <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
@@ -48,13 +63,13 @@ export default function InventoryReports() {
           exportToCsv(
             'stock-report',
             [
-              { header: 'Product', accessor: (it) => it.name },
-              { header: 'Category', accessor: (it) => it.category },
-              { header: 'Available', accessor: (it) => batches.filter((b) => b.itemId === it.id).reduce((s, b) => s + b.availableQty, 0) },
-              { header: 'Reserved', accessor: (it) => batches.filter((b) => b.itemId === it.id).reduce((s, b) => s + b.reservedQty, 0) },
-              { header: 'Valuation', accessor: (it) => Math.round(batches.filter((b) => b.itemId === it.id).reduce((s, b) => s + b.availableQty, 0) * it.averageCost) },
+              { header: 'Product', accessor: (r) => r.item.name },
+              { header: 'Category', accessor: (r) => r.item.category },
+              { header: 'Available', accessor: (r) => r.available },
+              { header: 'Reserved', accessor: (r) => r.reserved },
+              { header: 'Valuation', accessor: (r) => r.valuation },
             ],
-            items,
+            stockRows,
           )
         }
       />
@@ -70,20 +85,20 @@ export default function InventoryReports() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((it) => {
-              const itemBatches = batches.filter((b) => b.itemId === it.id);
-              const available = itemBatches.reduce((s, b) => s + b.availableQty, 0);
-              const reserved = itemBatches.reduce((s, b) => s + b.reservedQty, 0);
-              return (
-                <TableRow key={it.id} hover>
-                  <TableCell sx={{ fontWeight: 500 }}>{it.name}</TableCell>
-                  <TableCell>{it.category}</TableCell>
-                  <TableCell align="right">{available.toLocaleString()}</TableCell>
-                  <TableCell align="right">{reserved.toLocaleString()}</TableCell>
-                  <TableCell align="right">${Math.round(available * it.averageCost).toLocaleString()}</TableCell>
-                </TableRow>
-              );
-            })}
+            {stockRows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} sx={{ color: 'text.secondary' }}>No stock in this warehouse.</TableCell>
+              </TableRow>
+            )}
+            {stockRows.map((r) => (
+              <TableRow key={r.item.id} hover>
+                <TableCell sx={{ fontWeight: 500 }}>{r.item.name}</TableCell>
+                <TableCell>{r.item.category}</TableCell>
+                <TableCell align="right">{r.available.toLocaleString()}</TableCell>
+                <TableCell align="right">{r.reserved.toLocaleString()}</TableCell>
+                <TableCell align="right">${r.valuation.toLocaleString()}</TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </Card>

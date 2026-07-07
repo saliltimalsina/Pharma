@@ -8,6 +8,11 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
+import Link from '@mui/material/Link';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -22,11 +27,17 @@ import { ExpiryChip } from '../../components/expiryUtils';
 import { useInventory } from '../../store/InventoryStore';
 import { itemById, warehouseById } from '../../data/mockData';
 
-function LabeledValue({ label, value }: { label: string; value?: string | number }) {
+function LabeledValue({ label, value, onClick }: { label: string; value?: string | number; onClick?: () => void }) {
   return (
     <Box>
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>{label}</Typography>
-      <Typography variant="body2" sx={{ fontWeight: 500 }}>{value || '—'}</Typography>
+      {onClick ? (
+        <Link component="button" type="button" variant="body2" onClick={onClick} sx={{ fontWeight: 500, textAlign: 'left' }}>
+          {value || '—'}
+        </Link>
+      ) : (
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>{value || '—'}</Typography>
+      )}
     </Box>
   );
 }
@@ -34,9 +45,10 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
 export default function BatchDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { batches, updateBatchBin } = useInventory();
+  const { batches, updateBatchBin, recallBatch, disposeBatch } = useInventory();
   const batch = batches.find((b) => b.id === (id ?? ''));
   const [binDraft, setBinDraft] = useState(batch?.bin ?? '');
+  const [confirmAction, setConfirmAction] = useState<null | 'recall' | 'dispose'>(null);
 
   if (!batch) {
     return (
@@ -50,6 +62,8 @@ export default function BatchDetail() {
   const item = itemById(batch.itemId);
   const warehouse = warehouseById(batch.warehouseId);
   const passed = batch.inspectionResult.toLowerCase().startsWith('pass');
+  // Recall / dispose act on live stock; a batch already recalled or expired is terminal.
+  const canModify = batch.qcStatus !== 'Recalled' && batch.qcStatus !== 'Expired';
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -59,11 +73,11 @@ export default function BatchDetail() {
             <Typography variant="subtitle2" gutterBottom>General</Typography>
             <Grid container spacing={2} sx={{ mt: 0.5 }}>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Batch Number" value={batch.batchNumber} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Product" value={item?.name} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Product" value={item?.name} onClick={() => navigate(`/inventory/items/${batch.itemId}`)} /></Grid>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Supplier" value={batch.supplierName} /></Grid>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Purchase Order" value={batch.poNumber} /></Grid>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="GRN" value={batch.grnNumber} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Warehouse" value={warehouse?.name} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Warehouse" value={warehouse?.name} onClick={() => navigate(`/inventory/warehouses/${batch.warehouseId}`)} /></Grid>
             </Grid>
           </CardContent>
         </Card>
@@ -172,7 +186,18 @@ export default function BatchDetail() {
         title={batch.batchNumber}
         subtitle={item?.name}
         actions={
-          <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/batches')}>Back</Button>
+          <>
+            <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/batches')}>Back</Button>
+            <Button variant="outlined" onClick={() => navigate(`/inventory/ledger?batch=${batch.batchNumber}`)}>
+              View in Stock Ledger
+            </Button>
+            {canModify && (
+              <>
+                <Button variant="outlined" color="warning" onClick={() => setConfirmAction('recall')}>Recall</Button>
+                <Button variant="outlined" color="error" onClick={() => setConfirmAction('dispose')}>Dispose</Button>
+              </>
+            )}
+          </>
         }
       />
       <DetailTabs
@@ -182,6 +207,31 @@ export default function BatchDetail() {
           { label: 'Inspection', content: inspectionTab },
         ]}
       />
+
+      <Dialog open={confirmAction !== null} onClose={() => setConfirmAction(null)} fullWidth maxWidth="xs">
+        <DialogTitle>{confirmAction === 'recall' ? 'Recall Batch' : 'Dispose Batch'}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {confirmAction === 'recall'
+              ? `Recall batch ${batch.batchNumber}? Its available and reserved stock is pulled from circulation into damaged and the batch is flagged Recalled.`
+              : `Dispose batch ${batch.batchNumber}? Its available and reserved stock is written off into damaged and the batch is marked Expired.`}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmAction(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color={confirmAction === 'recall' ? 'warning' : 'error'}
+            onClick={() => {
+              if (confirmAction === 'recall') recallBatch(batch.id);
+              else if (confirmAction === 'dispose') disposeBatch(batch.id);
+              setConfirmAction(null);
+            }}
+          >
+            {confirmAction === 'recall' ? 'Recall' : 'Dispose'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

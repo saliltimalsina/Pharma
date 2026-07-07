@@ -195,7 +195,7 @@ export default function BillDetail() {
                 <Button variant="outlined" startIcon={<ReceiptLongRoundedIcon />} onClick={() => navigate(`/finance/debit-notes/new?bill=${bill.billNo}`)}>
                   Create Debit Note
                 </Button>
-                <Button variant="contained" onClick={() => navigate('/finance/payments/new')}>Pay Bill</Button>
+                <Button variant="contained" onClick={() => navigate(`/finance/payments/new?bill=${bill.billNo}`)}>Pay Bill</Button>
               </>
             )}
           </>

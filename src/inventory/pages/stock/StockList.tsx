@@ -24,6 +24,7 @@ import FilterSelect from '../../components/FilterSelect';
 import StatusChip from '../../components/StatusChip';
 import InventoryDataGrid from '../../components/InventoryDataGrid';
 import { ExpiryChip } from '../../components/expiryUtils';
+import { printBarcode } from '../../components/Barcode';
 import { useInventory } from '../../store/InventoryStore';
 import { itemById, warehouseById, warehouses, categories } from '../../data/mockData';
 import type { StockType } from '../../data/types';
@@ -38,9 +39,17 @@ interface ReserveTarget {
   availableQty: number;
 }
 
-function RowActions({ stockId, onReserve }: { stockId: string; onReserve: () => void }) {
+function RowActions({ stockId, itemId, onReserve }: { stockId: string; itemId: string; onReserve: () => void }) {
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+
+  const handlePrintBarcode = () => {
+    const item = itemById(itemId);
+    if (item) {
+      printBarcode({ title: item.name, subtitle: `${item.sku} · ${item.category}`, value: item.barcode || item.sku });
+    }
+    setAnchor(null);
+  };
 
   return (
     <>
@@ -52,8 +61,7 @@ function RowActions({ stockId, onReserve }: { stockId: string; onReserve: () => 
         <MenuItem onClick={() => { navigate('/inventory/transfers/new'); setAnchor(null); }}>Transfer</MenuItem>
         <MenuItem onClick={() => { navigate('/inventory/adjustments/new'); setAnchor(null); }}>Adjust Quantity</MenuItem>
         <MenuItem onClick={() => { onReserve(); setAnchor(null); }}>Reserve Stock</MenuItem>
-        <MenuItem onClick={() => setAnchor(null)}>Print Barcode</MenuItem>
-        <MenuItem onClick={() => setAnchor(null)}>Print QR</MenuItem>
+        <MenuItem onClick={handlePrintBarcode}>Print Barcode</MenuItem>
       </Menu>
     </>
   );
@@ -198,7 +206,7 @@ export default function StockList() {
       width: 60,
       sortable: false,
       filterable: false,
-      renderCell: (params) => <RowActions stockId={params.id as string} onReserve={() => openReserve(params.row as StockRow)} />,
+      renderCell: (params) => <RowActions stockId={params.id as string} itemId={(params.row as StockRow).itemId} onReserve={() => openReserve(params.row as StockRow)} />,
     },
   ];
 

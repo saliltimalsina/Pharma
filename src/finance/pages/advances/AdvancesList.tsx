@@ -154,7 +154,7 @@ export default function AdvancesList() {
         title="Advance Payments"
         subtitle="Unallocated credits held for customers and suppliers, applied against open documents"
         actions={
-          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/finance/payments/new')}>
+          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/finance/payments/new?type=Advance%20Payment')}>
             Record Advance
           </Button>
         }

@@ -200,7 +200,7 @@ export default function InvoiceDetail() {
                 <Button variant="outlined" startIcon={<ReceiptLongRoundedIcon />} onClick={() => navigate(`/finance/credit-notes/new?invoice=${invoice.invoiceNo}`)}>
                   Create Credit Note
                 </Button>
-                <Button variant="contained" onClick={() => navigate('/finance/payments/new')}>Record Payment</Button>
+                <Button variant="contained" onClick={() => navigate(`/finance/payments/new?invoice=${invoice.invoiceNo}`)}>Record Payment</Button>
               </>
             )}
           </>

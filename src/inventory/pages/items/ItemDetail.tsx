@@ -237,7 +237,12 @@ export default function ItemDetail() {
         title={item.name}
         subtitle={`${item.sku} · ${item.category}`}
         actions={
-          <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/items')}>Back</Button>
+          <>
+            <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/items')}>Back</Button>
+            <Button variant="outlined" onClick={() => navigate(`/inventory/ledger?item=${item.id}`)}>
+              View in Stock Ledger
+            </Button>
+          </>
         }
       />
       <DetailTabs

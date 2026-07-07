@@ -298,15 +298,25 @@ export default function RFQDetail() {
                   Highest overall score ({bestQuote.score}) — best balance of price, delivery time and quality rating.
                 </Typography>
               </Box>
-              <Button
-                variant="contained"
-                onClick={() => {
-                  if (rfq.status !== 'Awarded') awardRfq(rfq.id, bestQuote.vendorId);
-                  navigate(`/procurement/purchase-orders/new?fromRfq=${rfq.id}`);
-                }}
-              >
-                Generate Purchase Order
-              </Button>
+              <Stack direction="row" sx={{ gap: 1.5, flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<EmojiEventsRoundedIcon />}
+                  disabled={rfq.status === 'Awarded'}
+                  onClick={() => awardRfq(rfq.id, bestQuote.vendorId)}
+                >
+                  {rfq.status === 'Awarded' ? 'Awarded' : 'Award Vendor'}
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    if (rfq.status !== 'Awarded') awardRfq(rfq.id, bestQuote.vendorId);
+                    navigate(`/procurement/purchase-orders/new?fromRfq=${rfq.id}`);
+                  }}
+                >
+                  Generate Purchase Order
+                </Button>
+              </Stack>
             </Stack>
           </CardContent>
         </Card>
@@ -326,7 +336,7 @@ export default function RFQDetail() {
             />
           </ListItem>
         ) : (
-          <ListItem><ListItemText primary="Not awarded yet" secondary="Complete the comparison to award this RFQ" /></ListItem>
+          <ListItem><ListItemText primary="Not awarded yet" secondary="Use Award Vendor in the Comparison tab to award this RFQ" /></ListItem>
         )}
       </List>
     </Card>

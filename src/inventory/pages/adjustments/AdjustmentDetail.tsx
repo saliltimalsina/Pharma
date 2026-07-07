@@ -17,7 +17,7 @@ import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useInventory } from '../../store/InventoryStore';
-import { warehouseById } from '../../data/mockData';
+import { itemById, warehouseById } from '../../data/mockData';
 
 const CURRENT_APPROVER = 'David Kim';
 
@@ -97,7 +97,7 @@ export default function AdjustmentDetail() {
             const diff = it.actualQty - it.currentQty;
             return (
               <TableRow key={i} hover>
-                <TableCell sx={{ fontWeight: 500 }}>{it.itemId}</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{itemById(it.itemId)?.name ?? it.itemId}</TableCell>
                 <TableCell>{it.batchNumber}</TableCell>
                 <TableCell align="right">{it.currentQty.toLocaleString()}</TableCell>
                 <TableCell align="right">{it.actualQty.toLocaleString()}</TableCell>

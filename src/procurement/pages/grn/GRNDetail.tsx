@@ -19,6 +19,9 @@ import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useProcurement } from '../../store/ProcurementStore';
+import { useInventory } from '../../../inventory/store/InventoryStore';
+import type { StockInLine } from '../../../inventory/store/InventoryStore';
+import { warehouses as inventoryWarehouses } from '../../../inventory/data/mockData';
 
 function LabeledValue({ label, value }: { label: string; value?: string }) {
   return (
@@ -33,10 +36,20 @@ function daysBetween(from: string, to: string): number {
   return Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000);
 }
 
+// Map a GRN warehouse label (e.g. "Main Warehouse - WH01") to an inventory warehouse id.
+function resolveWarehouseId(label: string): string {
+  const l = label.toLowerCase();
+  const match = inventoryWarehouses.find(
+    (wh) => l.includes(wh.name.toLowerCase()) || l.includes(wh.code.toLowerCase()),
+  );
+  return match?.id ?? 'WH-01';
+}
+
 export default function GRNDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { grns, purchaseOrders } = useProcurement();
+  const { grns, purchaseOrders, acceptGrn } = useProcurement();
+  const { items: inventoryItems, receiveStock } = useInventory();
   const grn = grns.find((g) => g.id === id);
 
   if (!grn) {
@@ -54,6 +67,32 @@ export default function GRNDetail() {
     ? daysBetween(matchedPo.expectedDelivery, grn.receivedDate)
     : null;
   const onTime = deliveryDelta !== null && deliveryDelta <= 0;
+
+  // Complete a draft/pending GRN: advance status + roll accepted qty onto the PO,
+  // and cascade accepted goods into inventory stock (same mapping as GRNForm).
+  const handleComplete = () => {
+    const stockLines: StockInLine[] = [];
+    for (const line of grn.items) {
+      if (line.acceptedQty <= 0) continue;
+      const invItem = inventoryItems.find(
+        (it) => it.name.toLowerCase() === line.product.toLowerCase(),
+      );
+      if (!invItem) continue;
+      stockLines.push({
+        itemId: invItem.id,
+        batchNumber: line.batchNumber,
+        warehouseId: resolveWarehouseId(grn.warehouse),
+        quantity: line.acceptedQty,
+        expiryDate: line.expiryDate,
+        supplierName: grn.vendorName,
+        poNumber: grn.poNumber,
+        grnNumber: grn.grnNumber,
+        qcStatus: 'Under Inspection',
+      });
+    }
+    if (stockLines.length) receiveStock(stockLines);
+    acceptGrn(grn.id);
+  };
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -194,7 +233,18 @@ export default function GRNDetail() {
         title={grn.grnNumber}
         subtitle={`${grn.vendorName} · ${grn.poNumber}`}
         actions={
-          <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement/grn')}>Back</Button>
+          <>
+            <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement/grn')}>Back</Button>
+            {grn.status !== 'Completed' && (
+              <Button
+                variant="contained"
+                startIcon={<CheckCircleRoundedIcon />}
+                onClick={handleComplete}
+              >
+                Complete Receipt
+              </Button>
+            )}
+          </>
         }
       />
       <DetailTabs

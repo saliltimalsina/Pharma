@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -23,10 +23,8 @@ const banks = ['Nepal Investment Bank', 'Standard Chartered Nepal', '—'];
 
 export default function PaymentForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { invoices, supplierBills, addPayment, addAdvance } = useFinance();
-
-  const [type, setType] = useState<PaymentType>('Customer Payment');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
   const openInvoices = useMemo(
     () => invoices.filter((i) => invoiceBalance(i) > 0 && !['Draft', 'Proforma', 'Cancelled'].includes(i.status)),
@@ -37,8 +35,26 @@ export default function PaymentForm() {
     [supplierBills],
   );
 
-  const [invoiceRef, setInvoiceRef] = useState(openInvoices[0]?.invoiceNo ?? '');
-  const [billRef, setBillRef] = useState(openBills[0]?.billNo ?? '');
+  // Context passed in via the URL. useSearchParams decodes percent-encoding, so
+  // ?type=Advance%20Payment arrives here as the 'Advance Payment' string.
+  // ?invoice=/?bill= preselect an open document (and imply the matching type);
+  // if the referenced doc isn't open, we fall back to the defaults below.
+  const invoiceParam = searchParams.get('invoice');
+  const billParam = searchParams.get('bill');
+  const typeParam = searchParams.get('type');
+  const matchedInvoice = invoiceParam ? openInvoices.find((i) => i.invoiceNo === invoiceParam) : undefined;
+  const matchedBill = billParam ? openBills.find((b) => b.billNo === billParam) : undefined;
+
+  const [type, setType] = useState<PaymentType>(() => {
+    if (matchedInvoice) return 'Customer Payment';
+    if (matchedBill) return 'Supplier Payment';
+    if (typeParam && types.includes(typeParam as PaymentType)) return typeParam as PaymentType;
+    return 'Customer Payment';
+  });
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+
+  const [invoiceRef, setInvoiceRef] = useState(() => matchedInvoice?.invoiceNo ?? openInvoices[0]?.invoiceNo ?? '');
+  const [billRef, setBillRef] = useState(() => matchedBill?.billNo ?? openBills[0]?.billNo ?? '');
   const [amount, setAmount] = useState(0);
   const [method, setMethod] = useState<PaymentMethod>('Bank Transfer');
   const [bank, setBank] = useState(banks[0]);

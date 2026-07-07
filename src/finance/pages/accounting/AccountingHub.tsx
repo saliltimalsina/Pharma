@@ -169,7 +169,7 @@ export default function AccountingHub() {
                 <TableCell><StatusChip status={i.status} /></TableCell>
                 <TableCell align="right">
                   <Button size="small" onClick={() => navigate(`/finance/invoices/${i.id}`)}>View</Button>
-                  <Button size="small" onClick={() => navigate('/finance/payments/new')}>Record Payment</Button>
+                  <Button size="small" onClick={() => navigate(`/finance/payments/new?invoice=${i.invoiceNo}`)}>Record Payment</Button>
                 </TableCell>
               </TableRow>
             );
@@ -202,7 +202,7 @@ export default function AccountingHub() {
               <TableCell><StatusChip status={b.status} /></TableCell>
               <TableCell align="right">
                 <Button size="small" onClick={() => navigate(`/finance/bills/${b.id}`)}>View</Button>
-                <Button size="small" onClick={() => navigate('/finance/payments/new')}>Pay Bill</Button>
+                <Button size="small" onClick={() => navigate(`/finance/payments/new?bill=${b.billNo}`)}>Pay Bill</Button>
               </TableCell>
             </TableRow>
           ))}

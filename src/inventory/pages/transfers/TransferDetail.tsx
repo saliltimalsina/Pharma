@@ -18,7 +18,7 @@ import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useInventory } from '../../store/InventoryStore';
-import { warehouseById } from '../../data/mockData';
+import { itemById, warehouseById } from '../../data/mockData';
 
 function LabeledValue({ label, value }: { label: string; value?: string }) {
   return (
@@ -93,7 +93,7 @@ export default function TransferDetail() {
         <TableBody>
           {transfer.items.map((it, i) => (
             <TableRow key={i} hover>
-              <TableCell sx={{ fontWeight: 500 }}>{it.itemId}</TableCell>
+              <TableCell sx={{ fontWeight: 500 }}>{itemById(it.itemId)?.name ?? it.itemId}</TableCell>
               <TableCell>{it.batchNumber}</TableCell>
               <TableCell>{it.currentBin}</TableCell>
               <TableCell align="right">{it.quantity.toLocaleString()}</TableCell>

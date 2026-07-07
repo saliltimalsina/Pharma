@@ -49,7 +49,7 @@ const APPROVAL_STEPS = ['Submitted', 'Manager Review', 'Purchasing Notified', 'A
 export default function RequisitionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { requisitions, submitRequisition, approveRequisition, rejectRequisition } = useProcurement();
+  const { requisitions, submitRequisition, approveRequisition, rejectRequisition, completeRequisition } = useProcurement();
   const req = requisitions.find((r) => r.id === id);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -211,9 +211,19 @@ export default function RequisitionDetail() {
               </>
             )}
             {req.status === 'Approved' && (
-              <Button variant="contained" onClick={() => navigate(`/procurement/rfqs/new?fromReq=${req.id}`)}>
-                Create RFQ
-              </Button>
+              <>
+                <Button
+                  variant="outlined"
+                  color="success"
+                  startIcon={<CheckRoundedIcon />}
+                  onClick={() => completeRequisition(req.id)}
+                >
+                  Mark Completed
+                </Button>
+                <Button variant="contained" onClick={() => navigate(`/procurement/rfqs/new?fromReq=${req.id}`)}>
+                  Create RFQ
+                </Button>
+              </>
             )}
           </>
         }
