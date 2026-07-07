@@ -114,7 +114,7 @@ export const items: Item[] = [
     preferredSupplier: 'Alpine Pharma Chemicals',
     purchasePrice: 24.5,
     averageCost: 24.1,
-    currency: 'USD',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -139,7 +139,7 @@ export const items: Item[] = [
     preferredSupplier: 'Vertex Fine Chemicals',
     purchasePrice: 24.1,
     averageCost: 23.8,
-    currency: 'USD',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -164,7 +164,7 @@ export const items: Item[] = [
     preferredSupplier: 'Alpine Pharma Chemicals',
     purchasePrice: 22,
     averageCost: 21.6,
-    currency: 'USD',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -189,7 +189,7 @@ export const items: Item[] = [
     preferredSupplier: 'Danube Excipient Works',
     purchasePrice: 8.9,
     averageCost: 8.6,
-    currency: 'EUR',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -214,7 +214,7 @@ export const items: Item[] = [
     preferredSupplier: 'MeridianExcipients Ltd.',
     purchasePrice: 12.2,
     averageCost: 11.9,
-    currency: 'USD',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -239,7 +239,7 @@ export const items: Item[] = [
     preferredSupplier: 'Danube Excipient Works',
     purchasePrice: 14.5,
     averageCost: 14.1,
-    currency: 'EUR',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -264,7 +264,7 @@ export const items: Item[] = [
     preferredSupplier: 'ClearPack Industries',
     purchasePrice: 0.012,
     averageCost: 0.012,
-    currency: 'USD',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -289,7 +289,7 @@ export const items: Item[] = [
     preferredSupplier: 'ClearPack Industries',
     purchasePrice: 46,
     averageCost: 45.2,
-    currency: 'USD',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -314,7 +314,7 @@ export const items: Item[] = [
     preferredSupplier: 'ClearPack Industries',
     purchasePrice: 9.4,
     averageCost: 9.4,
-    currency: 'USD',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -339,7 +339,7 @@ export const items: Item[] = [
     preferredSupplier: 'Nordic Lab Instruments',
     purchasePrice: 2840,
     averageCost: 2840,
-    currency: 'EUR',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -364,7 +364,7 @@ export const items: Item[] = [
     preferredSupplier: 'Nordic Lab Instruments',
     purchasePrice: 180,
     averageCost: 180,
-    currency: 'EUR',
+    currency: 'NPR',
     status: 'Active',
   },
   {
@@ -389,7 +389,7 @@ export const items: Item[] = [
     preferredSupplier: 'Blue Ridge MRO Supplies',
     purchasePrice: 800,
     averageCost: 800,
-    currency: 'USD',
+    currency: 'NPR',
     status: 'Inactive',
   },
 ];

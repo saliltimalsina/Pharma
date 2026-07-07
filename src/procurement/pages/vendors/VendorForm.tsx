@@ -16,7 +16,7 @@ import type { VendorCategory } from '../../data/types';
 
 const categories: VendorCategory[] = ['API Supplier', 'Excipients', 'Packaging', 'Lab Equipment', 'Logistics', 'MRO'];
 const businessTypes = ['Manufacturer', 'Distributor', 'Service Provider'];
-const currencies = ['USD', 'EUR', 'CHF'];
+const currencies = ['NPR'];
 
 export default function VendorForm() {
   const navigate = useNavigate();

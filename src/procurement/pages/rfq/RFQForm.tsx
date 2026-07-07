@@ -52,7 +52,7 @@ export default function RFQForm() {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<VendorCategory>(categories[0]);
   const [closingDate, setClosingDate] = useState('');
-  const [currency, setCurrency] = useState('USD');
+  const [currency, setCurrency] = useState('NPR');
   const [items, setItems] = useState<ItemRow[]>(() => {
     if (fromReq) {
       const req = requisitions.find((r) => r.id === fromReq);
@@ -118,7 +118,7 @@ export default function RFQForm() {
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormSelectField fullWidth size="small" label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-                  {['USD', 'EUR', 'CHF'].map((c) => (
+                  {['NPR'].map((c) => (
                     <MenuItem key={c} value={c}>{c}</MenuItem>
                   ))}
                 </FormSelectField>

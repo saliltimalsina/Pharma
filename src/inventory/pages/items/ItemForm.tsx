@@ -28,7 +28,7 @@ const suppliers = [
   'Vertex Fine Chemicals',
   'Danube Excipient Works',
 ];
-const currencies = ['USD', 'EUR', 'CHF'];
+const currencies = ['NPR'];
 const uoms = ['kg', 'g', 'pcs', 'roll', 'vial', 'box', 'litre'];
 
 export default function ItemForm() {

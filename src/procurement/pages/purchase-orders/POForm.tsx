@@ -62,7 +62,7 @@ export default function POForm() {
   const sourceQuote = sourceRfq?.quotes.find((q) => q.vendorId === sourceVendorId);
 
   const [vendorId, setVendorId] = useState(sourceVendorId ?? vendors[0].id);
-  const [currency, setCurrency] = useState(sourceRfq?.currency ?? 'USD');
+  const [currency, setCurrency] = useState(sourceRfq?.currency ?? 'NPR');
   const [warehouse, setWarehouse] = useState('Main Warehouse - WH01');
   const [department, setDepartment] = useState(departments[0]);
   const [orderDate, setOrderDate] = useState(today);
@@ -154,7 +154,7 @@ export default function POForm() {
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormSelectField fullWidth size="small" label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-                  {['USD', 'EUR', 'CHF'].map((c) => (
+                  {['NPR'].map((c) => (
                     <MenuItem key={c} value={c}>{c}</MenuItem>
                   ))}
                 </FormSelectField>

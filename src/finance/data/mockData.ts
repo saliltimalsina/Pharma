@@ -447,8 +447,8 @@ export const journalEntries: JournalEntry[] = [
 ];
 
 export const bankAccounts: BankAccount[] = [
-  { id: 'BANK-001', bankName: 'Nepal Investment Bank', accountNumber: '****4471', currency: 'USD', balance: 284600, status: 'Active' },
-  { id: 'BANK-002', bankName: 'Standard Chartered Nepal', accountNumber: '****4402', currency: 'USD', balance: 142300, status: 'Active' },
+  { id: 'BANK-001', bankName: 'Nepal Investment Bank', accountNumber: '****4471', currency: 'NPR', balance: 284600, status: 'Active' },
+  { id: 'BANK-002', bankName: 'Standard Chartered Nepal', accountNumber: '****4402', currency: 'NPR', balance: 142300, status: 'Active' },
 ];
 
 export const bankTransactions: BankTransaction[] = [
