@@ -11,14 +11,15 @@ export default function FormSelectField({
   label,
   id,
   fullWidth,
+  required,
   children,
   ...rest
 }: FormSelectFieldProps) {
   const inputId = id ?? `field-${label.toLowerCase().replace(/\s+/g, '-')}`;
   return (
-    <FormControl fullWidth={fullWidth} size="small">
-      <FormLabel htmlFor={inputId}>{label}</FormLabel>
-      <Select id={inputId} size="small" {...rest}>
+    <FormControl fullWidth={fullWidth} size="small" required={required}>
+      <FormLabel htmlFor={inputId} sx={{ '& .MuiFormLabel-asterisk': { color: 'error.main' } }}>{label}</FormLabel>
+      <Select id={inputId} size="small" required={required} {...rest}>
         {children}
       </Select>
     </FormControl>

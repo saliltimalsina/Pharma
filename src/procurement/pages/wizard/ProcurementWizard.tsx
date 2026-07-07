@@ -119,14 +119,14 @@ export default function ProcurementWizard() {
         <CardContent sx={{ pt: 0 }}>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <FormSelectField fullWidth size="small" label="Department" value={department} onChange={(e) => setDepartment(e.target.value)}>
+              <FormSelectField fullWidth size="small" required label="Department" value={department} onChange={(e) => setDepartment(e.target.value)}>
                 {departments.map((d) => (
                   <MenuItem key={d} value={d}>{d}</MenuItem>
                 ))}
               </FormSelectField>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <FormField fullWidth size="small" label="Requester" value={requester} onChange={(e) => setRequester(e.target.value)} />
+              <FormField fullWidth size="small" required label="Requester" value={requester} onChange={(e) => setRequester(e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <FormSelectField fullWidth size="small" label="Priority" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
@@ -139,7 +139,7 @@ export default function ProcurementWizard() {
               <FormField fullWidth size="small" type="date" label="Required Date" value={requiredDate} onChange={(e) => setRequiredDate(e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12, sm: 8 }}>
-              <FormField fullWidth size="small" label="Purpose" placeholder="e.g. Batch B-2207 production" value={purpose} onChange={(e) => setPurpose(e.target.value)} />
+              <FormField fullWidth size="small" required label="Purpose" placeholder="e.g. Batch B-2207 production" value={purpose} onChange={(e) => setPurpose(e.target.value)} />
             </Grid>
           </Grid>
         </CardContent>
@@ -159,7 +159,7 @@ export default function ProcurementWizard() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Item</TableCell>
+                <TableCell>Item <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                 <TableCell>Description</TableCell>
                 <TableCell width={100}>Qty</TableCell>
                 <TableCell width={90}>Unit</TableCell>
@@ -206,7 +206,7 @@ export default function ProcurementWizard() {
         <CardContent sx={{ pt: 0 }}>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <FormField fullWidth size="small" label="Title" placeholder="e.g. Lactose Monohydrate — Q3 Supply" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <FormField fullWidth size="small" required label="Title" placeholder="e.g. Lactose Monohydrate — Q3 Supply" value={title} onChange={(e) => setTitle(e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <FormSelectField fullWidth size="small" label="Purchase Category" value={category} onChange={(e) => setCategory(e.target.value as VendorCategory)}>
@@ -216,14 +216,18 @@ export default function ProcurementWizard() {
               </FormSelectField>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <FormField fullWidth size="small" type="date" label="Closing Date" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
+              <FormField fullWidth size="small" required type="date" label="Closing Date" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
             </Grid>
           </Grid>
         </CardContent>
       </Card>
 
       <Card variant="outlined">
-        <CardHeader title="Select vendors to invite" slotProps={{ title: { variant: 'subtitle2' } }} subheader={`${selectedVendors.length} selected`} />
+        <CardHeader
+          title={<>Select vendors to invite <Box component="span" sx={{ color: 'error.main' }}>*</Box></>}
+          slotProps={{ title: { variant: 'subtitle2' } }}
+          subheader={`${selectedVendors.length} selected`}
+        />
         <CardContent sx={{ pt: 0 }}>
           <Table size="small">
             <TableHead>
