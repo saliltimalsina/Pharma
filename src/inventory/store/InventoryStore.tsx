@@ -80,6 +80,8 @@ interface InventoryContextValue {
   recallBatch: (batchId: string) => void;
   disposeBatch: (batchId: string) => void;
   updateBatchBin: (batchId: string, bin: string) => void;
+  // QC sign-off: moves a batch's pending-inspection quantity into available stock.
+  releaseBatch: (batchId: string, approvedBy: string) => void;
 }
 
 const InventoryContext = createContext<InventoryContextValue | null>(null);
@@ -107,11 +109,12 @@ function makeMovement(
   return { id: `MOV-${String(movementSeq).padStart(4, '0')}`, date: today(), type, itemId, batchNumber, warehouseId, qty, reference, by };
 }
 
-// Derived stock-entry view over batches. Bins now live on the batch itself, so the
-// view simply mirrors them (STK ids stay stable as long as batch ordering is append-only).
+// Derived stock-entry view over batches — same id as the underlying batch, since a
+// stock entry and its batch are the same record viewed from two angles (list/detail
+// pages present both sets of columns together instead of splitting across two pages).
 function deriveStockEntries(batches: Batch[]): StockEntry[] {
-  return batches.map((b, i) => ({
-    id: `STK-${String(i + 1).padStart(3, '0')}`,
+  return batches.map((b) => ({
+    id: b.id,
     itemId: b.itemId,
     batchNumber: b.batchNumber,
     warehouseId: b.warehouseId,
@@ -464,6 +467,32 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     setBatches((prev) => prev.map((b) => (b.id === batchId ? { ...b, bin } : b)));
   };
 
+  // Moves whatever quantity is still pending inspection (receivedQty - availableQty -
+  // reservedQty) into availableQty and marks the batch Released — the step that makes
+  // GRN-received goods actually usable/reservable/sellable.
+  const releaseBatch: InventoryContextValue['releaseBatch'] = (batchId, approvedBy) => {
+    const target = batches.find((b) => b.id === batchId);
+    if (!target) return;
+    const pending = target.receivedQty - target.availableQty - target.reservedQty;
+    setBatches((prev) =>
+      prev.map((b) =>
+        b.id === batchId
+          ? {
+              ...b,
+              qcStatus: 'Released',
+              inspectionResult: 'Pass',
+              approvedBy,
+              releasedDate: today(),
+              availableQty: b.availableQty + Math.max(0, pending),
+            }
+          : b,
+      ),
+    );
+    if (pending > 0) {
+      logMovements([makeMovement('In', target.itemId, target.batchNumber, target.warehouseId, pending, 'QC release', approvedBy)]);
+    }
+  };
+
   return (
     <InventoryContext.Provider
       value={{
@@ -490,6 +519,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         recallBatch,
         disposeBatch,
         updateBatchBin,
+        releaseBatch,
       }}
     >
       {children}

@@ -13,6 +13,16 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
@@ -26,7 +36,7 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
   return (
     <Box>
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>{label}</Typography>
-      <Typography variant="body2" sx={{ fontWeight: 500 }}>{value ?? '—'}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 500 }}>{value || '—'}</Typography>
     </Box>
   );
 }
@@ -34,14 +44,12 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
 export default function StockDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { stockEntries, batches, movements, updateBatchBin } = useInventory();
-  const stock = stockEntries.find((s) => s.id === (id ?? ''));
-  const batch = stock
-    ? batches.find((b) => b.batchNumber === stock.batchNumber && b.warehouseId === stock.warehouseId)
-    : undefined;
-  const [binDraft, setBinDraft] = useState(stock?.bin ?? '');
+  const { batches, movements, updateBatchBin, recallBatch, disposeBatch, releaseBatch } = useInventory();
+  const batch = batches.find((b) => b.id === (id ?? ''));
+  const [binDraft, setBinDraft] = useState(batch?.bin ?? '');
+  const [confirmAction, setConfirmAction] = useState<null | 'recall' | 'dispose' | 'release'>(null);
 
-  if (!stock) {
+  if (!batch) {
     return (
       <Box>
         <Typography>Stock entry not found.</Typography>
@@ -50,13 +58,18 @@ export default function StockDetail() {
     );
   }
 
-  const item = itemById(stock.itemId);
-  const warehouse = warehouseById(stock.warehouseId);
-  const level = stock.availableQty === 0 ? 'Out of Stock' : stock.availableQty <= (item?.reorderLevel ?? 0) ? 'Low Stock' : 'In Stock';
+  const item = itemById(batch.itemId);
+  const warehouse = warehouseById(batch.warehouseId);
+  const level = batch.availableQty === 0 ? 'Out of Stock' : batch.availableQty <= (item?.reorderLevel ?? 0) ? 'Low Stock' : 'In Stock';
+  const passed = batch.inspectionResult.toLowerCase().startsWith('pass');
+  const pendingQty = batch.receivedQty - batch.availableQty - batch.reservedQty;
+  // Recall / dispose act on live stock; a batch already recalled or expired is terminal.
+  const canModify = batch.qcStatus !== 'Recalled' && batch.qcStatus !== 'Expired';
+  const canRelease = canModify && batch.qcStatus !== 'Released' && batch.qcStatus !== 'Available' && pendingQty > 0;
 
   // Real movement history for this batch at this warehouse, newest first.
   const batchMovements = movements
-    .filter((m) => m.batchNumber === stock.batchNumber && m.warehouseId === stock.warehouseId)
+    .filter((m) => m.batchNumber === batch.batchNumber && m.warehouseId === batch.warehouseId)
     .slice()
     .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id.localeCompare(a.id)));
 
@@ -69,10 +82,21 @@ export default function StockDetail() {
             <Grid container spacing={2} sx={{ mt: 0.5 }}>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Product" value={item?.name} /></Grid>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Warehouse" value={warehouse?.name} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Batch" value={stock.batchNumber} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Supplier" value={stock.supplierName} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Purchase Order" value={stock.poNumber} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="GRN" value={stock.grnNumber} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Batch" value={batch.batchNumber} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Supplier" value={batch.supplierName} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Purchase Order" value={batch.poNumber} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="GRN" value={batch.grnNumber} /></Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+        <Card variant="outlined" sx={{ mt: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle2" gutterBottom>Manufacturing</Typography>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Manufacturing Date" value={batch.manufacturingDate} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Expiry Date" value={batch.expiryDate} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Shelf Life" value={`${batch.shelfLifeMonths} months`} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Country of Origin" value={batch.countryOfOrigin} /></Grid>
             </Grid>
           </CardContent>
         </Card>
@@ -90,8 +114,8 @@ export default function StockDetail() {
               />
               <Button
                 variant="contained"
-                disabled={!batch || binDraft.trim() === '' || binDraft === stock.bin}
-                onClick={() => batch && updateBatchBin(batch.id, binDraft.trim())}
+                disabled={binDraft.trim() === '' || binDraft === batch.bin}
+                onClick={() => updateBatchBin(batch.id, binDraft.trim())}
               >
                 Save Location
               </Button>
@@ -106,16 +130,18 @@ export default function StockDetail() {
         <Card variant="outlined">
           <CardContent>
             <Typography variant="subtitle2" gutterBottom>Inventory</Typography>
-            <Stack direction="row" sx={{ gap: 1, mb: 2 }}>
+            <Stack direction="row" sx={{ gap: 1, mb: 2, flexWrap: 'wrap' }}>
               <StatusChip status={level} />
-              <ExpiryChip dateStr={stock.expiryDate} />
+              <StatusChip status={batch.qcStatus} />
+              <ExpiryChip dateStr={batch.expiryDate} />
             </Stack>
             <Stack sx={{ gap: 1.5 }}>
-              <LabeledValue label="Available Quantity" value={stock.availableQty.toLocaleString()} />
-              <LabeledValue label="Reserved Quantity" value={stock.reservedQty.toLocaleString()} />
-              <LabeledValue label="Damaged Quantity" value={stock.damagedQty.toLocaleString()} />
-              <LabeledValue label="Pending Inspection" value={stock.pendingInspectionQty.toLocaleString()} />
-              <LabeledValue label="Total Value" value={item ? `NPR ${(item.averageCost * stock.availableQty).toLocaleString()}` : '—'} />
+              <LabeledValue label="Received Qty" value={batch.receivedQty.toLocaleString()} />
+              <LabeledValue label="Available Qty" value={batch.availableQty.toLocaleString()} />
+              <LabeledValue label="Reserved Qty" value={batch.reservedQty.toLocaleString()} />
+              <LabeledValue label="Pending Inspection" value={pendingQty.toLocaleString()} />
+              <LabeledValue label="Damaged Qty" value={batch.damagedQty.toLocaleString()} />
+              <LabeledValue label="Total Value" value={item ? `NPR ${(item.averageCost * batch.availableQty).toLocaleString()}` : '—'} />
             </Stack>
           </CardContent>
         </Card>
@@ -155,16 +181,23 @@ export default function StockDetail() {
     </Card>
   );
 
-  const batchTab = (
+  const inspectionTab = (
     <Card variant="outlined">
       <CardContent>
-        <Button variant="text" disabled={!batch} onClick={() => batch && navigate(`/inventory/batches/${batch.id}`)}>
-          View full batch record →
-        </Button>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Batch Number" value={stock.batchNumber} /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Expiry Date" value={stock.expiryDate} /></Grid>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="QC Status" value={batch.qcStatus} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Approved By" value={batch.approvedBy} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Released Date" value={batch.releasedDate} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Certificates" value="COA on file" /></Grid>
         </Grid>
+        <List sx={{ mt: 2 }}>
+          <ListItem divider>
+            <ListItemIcon>
+              {passed ? <CheckCircleRoundedIcon color="success" /> : <CancelRoundedIcon color="error" />}
+            </ListItemIcon>
+            <ListItemText primary="Inspection Result" secondary={batch.inspectionResult} />
+          </ListItem>
+        </List>
       </CardContent>
     </Card>
   );
@@ -173,9 +206,9 @@ export default function StockDetail() {
     <Card variant="outlined">
       <CardContent>
         <Grid container spacing={2}>
-          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Purchase Order" value={stock.poNumber} /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="GRN" value={stock.grnNumber} /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Supplier" value={stock.supplierName} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Purchase Order" value={batch.poNumber} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="GRN" value={batch.grnNumber} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Supplier" value={batch.supplierName} /></Grid>
         </Grid>
       </CardContent>
     </Card>
@@ -184,20 +217,66 @@ export default function StockDetail() {
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
       <PageHeader
-        title={`${item?.name} · ${stock.batchNumber}`}
-        subtitle={`${warehouse?.name} · ${stock.bin}`}
+        title={`${item?.name} · ${batch.batchNumber}`}
+        subtitle={`${warehouse?.name} · ${batch.bin}`}
         actions={
-          <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/stock')}>Back</Button>
+          <>
+            <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/stock')}>Back</Button>
+            <Button variant="outlined" onClick={() => navigate(`/inventory/ledger?batch=${batch.batchNumber}`)}>
+              View in Stock Ledger
+            </Button>
+            {canRelease && (
+              <Button variant="contained" color="success" onClick={() => setConfirmAction('release')}>
+                Release to Stock
+              </Button>
+            )}
+            {canModify && (
+              <>
+                <Button variant="outlined" color="warning" onClick={() => setConfirmAction('recall')}>Recall</Button>
+                <Button variant="outlined" color="error" onClick={() => setConfirmAction('dispose')}>Dispose</Button>
+              </>
+            )}
+          </>
         }
       />
       <DetailTabs
         tabs={[
           { label: 'Overview', content: overviewTab },
           { label: 'Movement', content: movementTab },
-          { label: 'Batch', content: batchTab },
+          { label: 'Inspection', content: inspectionTab },
           { label: 'Purchase History', content: purchaseHistoryTab },
         ]}
       />
+
+      <Dialog open={confirmAction !== null} onClose={() => setConfirmAction(null)} fullWidth maxWidth="xs">
+        <DialogTitle>
+          {confirmAction === 'release' ? 'Release Batch to Stock' : confirmAction === 'recall' ? 'Recall Batch' : 'Dispose Batch'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {confirmAction === 'release'
+              ? `Release batch ${batch.batchNumber}? ${pendingQty.toLocaleString()} unit(s) pending inspection become available stock, and the batch is marked Released.`
+              : confirmAction === 'recall'
+                ? `Recall batch ${batch.batchNumber}? Its available and reserved stock is pulled from circulation into damaged and the batch is flagged Recalled.`
+                : `Dispose batch ${batch.batchNumber}? Its available and reserved stock is written off into damaged and the batch is marked Expired.`}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmAction(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color={confirmAction === 'release' ? 'success' : confirmAction === 'recall' ? 'warning' : 'error'}
+            onClick={() => {
+              if (confirmAction === 'release') releaseBatch(batch.id, 'Grace Liu');
+              else if (confirmAction === 'recall') recallBatch(batch.id);
+              else if (confirmAction === 'dispose') disposeBatch(batch.id);
+              setConfirmAction(null);
+            }}
+          >
+            {confirmAction === 'release' ? 'Release' : confirmAction === 'recall' ? 'Recall' : 'Dispose'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

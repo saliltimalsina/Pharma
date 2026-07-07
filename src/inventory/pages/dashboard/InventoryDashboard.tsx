@@ -35,11 +35,10 @@ import { itemById, warehouseById } from '../../data/mockData';
 
 const quickActions = [
   { label: 'Add Product', icon: <Inventory2RoundedIcon />, path: '/inventory/items/new' },
-  { label: 'Receive Stock', icon: <ArrowDownwardRoundedIcon />, path: '/inventory/stock/new' },
+  { label: 'Receive Stock (non-PO)', icon: <ArrowDownwardRoundedIcon />, path: '/inventory/stock/new' },
   { label: 'Issue Stock', icon: <ArrowDownwardRoundedIcon />, path: '/inventory/stock/out' },
   { label: 'Transfer Stock', icon: <SyncAltRoundedIcon />, path: '/inventory/transfers/new' },
   { label: 'Adjust Stock', icon: <WarningAmberRoundedIcon />, path: '/inventory/adjustments/new' },
-  { label: 'Create Batch', icon: <Category2RoundedIcon />, path: '/inventory/batches/new' },
 ];
 
 function RecentActivity() {
@@ -55,7 +54,7 @@ function RecentActivity() {
         primary: `${itemById(b.itemId)?.name} · ${b.batchNumber}`,
         secondary: `${b.grnNumber} · ${b.receivedQty.toLocaleString()} received`,
         status: b.qcStatus,
-        path: `/inventory/batches/${b.id}`,
+        path: `/inventory/stock/${b.id}`,
       })),
     },
     {
@@ -87,7 +86,7 @@ function RecentActivity() {
           primary: `${itemById(b.itemId)?.name} · ${b.batchNumber}`,
           secondary: `Expired ${b.expiryDate}`,
           status: 'Expired',
-          path: `/inventory/batches/${b.id}`,
+          path: `/inventory/stock/${b.id}`,
         })),
     },
     {
@@ -100,7 +99,7 @@ function RecentActivity() {
           primary: `${b.batchNumber} · ${itemById(b.itemId)?.name}`,
           secondary: `Mfg ${b.manufacturingDate}`,
           status: b.qcStatus,
-          path: `/inventory/batches/${b.id}`,
+          path: `/inventory/stock/${b.id}`,
         })),
     },
   ];

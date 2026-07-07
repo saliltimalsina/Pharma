@@ -30,9 +30,6 @@ import WarehouseProfile from './inventory/pages/warehouses/WarehouseProfile';
 import StockList from './inventory/pages/stock/StockList';
 import StockInForm from './inventory/pages/stock/StockInForm';
 import StockDetail from './inventory/pages/stock/StockDetail';
-import BatchList from './inventory/pages/batches/BatchList';
-import BatchForm from './inventory/pages/batches/BatchForm';
-import BatchDetail from './inventory/pages/batches/BatchDetail';
 import TransferList from './inventory/pages/transfers/TransferList';
 import TransferForm from './inventory/pages/transfers/TransferForm';
 import TransferDetail from './inventory/pages/transfers/TransferDetail';
@@ -117,10 +114,6 @@ function App() {
                 <Route path="inventory/stock/new" element={<StockInForm />} />
                 <Route path="inventory/stock/out" element={<StockOutForm />} />
                 <Route path="inventory/stock/:id" element={<StockDetail />} />
-
-                <Route path="inventory/batches" element={<BatchList />} />
-                <Route path="inventory/batches/new" element={<BatchForm />} />
-                <Route path="inventory/batches/:id" element={<BatchDetail />} />
 
                 <Route path="inventory/transfers" element={<TransferList />} />
                 <Route path="inventory/transfers/new" element={<TransferForm />} />

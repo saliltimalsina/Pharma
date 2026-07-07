@@ -125,7 +125,7 @@ export default function WarehouseProfile() {
         </TableHead>
         <TableBody>
           {whBatches.map((b) => (
-            <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/batches/${b.id}`)}>
+            <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/stock/${b.id}`)}>
               <TableCell sx={{ fontWeight: 500 }}>{itemById(b.itemId)?.name}</TableCell>
               <TableCell>{b.batchNumber}</TableCell>
               <TableCell align="right">{b.availableQty.toLocaleString()}</TableCell>

@@ -61,8 +61,8 @@ export default function StockInForm() {
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1400px' } }}>
       <PageHeader
-        title="Stock In"
-        subtitle="Receive goods into inventory — creates or tops up batches (GRN receipt)"
+        title="Stock In (non-PO)"
+        subtitle="Manual stock-in for goods not tied to a purchase order — opening balances, found stock, etc. Goods ordered through Procurement arrive via Goods Receipt (GRN) instead."
         actions={<Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/stock')}>Cancel</Button>}
       />
 

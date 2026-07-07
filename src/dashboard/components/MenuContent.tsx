@@ -46,13 +46,8 @@ const mainListItems: NavItem[] = [
       { text: 'Item Master', path: '/inventory/items' },
       { text: 'Warehouses', path: '/inventory/warehouses' },
       { text: 'Stock', path: '/inventory/stock' },
-      { text: 'Batch Management', path: '/inventory/batches' },
       { text: 'Transfers', path: '/inventory/transfers' },
       { text: 'Stock Adjustment', path: '/inventory/adjustments' },
-      { text: 'Expiry Monitoring', path: '/inventory/expiry' },
-      { text: 'Stock Ledger', path: '/inventory/ledger' },
-      { text: 'Stock Monitoring', path: '/inventory/alerts' },
-      { text: 'Inventory Reports', path: '/inventory/reports' },
     ],
   },
   {

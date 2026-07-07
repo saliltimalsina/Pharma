@@ -166,7 +166,7 @@ export default function ItemDetail() {
         </TableHead>
         <TableBody>
           {itemBatches.map((b) => (
-            <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/batches/${b.id}`)}>
+            <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/stock/${b.id}`)}>
               <TableCell>{warehouseById(b.warehouseId)?.name}</TableCell>
               <TableCell sx={{ fontWeight: 500 }}>{b.batchNumber}</TableCell>
               <TableCell align="right">{b.availableQty.toLocaleString()}</TableCell>
@@ -193,7 +193,7 @@ export default function ItemDetail() {
         </TableHead>
         <TableBody>
           {itemBatches.map((b) => (
-            <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/batches/${b.id}`)}>
+            <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/stock/${b.id}`)}>
               <TableCell sx={{ fontWeight: 500 }}>{b.batchNumber}</TableCell>
               <TableCell>{b.manufacturingDate}</TableCell>
               <TableCell>{b.expiryDate}</TableCell>

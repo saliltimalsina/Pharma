@@ -37,7 +37,6 @@ const INVENTORY_LABELS: Record<string, string> = {
   items: 'Item Master',
   warehouses: 'Warehouses',
   stock: 'Stock',
-  batches: 'Batch Management',
   transfers: 'Transfers',
   adjustments: 'Stock Adjustment',
   expiry: 'Expiry Monitoring',

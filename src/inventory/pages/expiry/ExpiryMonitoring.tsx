@@ -138,7 +138,7 @@ export default function ExpiryMonitoring() {
         <InventoryDataGrid
           rows={rows}
           columns={columns}
-          onRowClick={(params) => navigate(`/inventory/batches/${params.id}`)}
+          onRowClick={(params) => navigate(`/inventory/stock/${params.id}`)}
           sx={{ cursor: 'pointer' }}
         />
       </Card>
