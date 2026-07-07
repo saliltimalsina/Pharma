@@ -25,8 +25,7 @@ import StatusChip from '../../components/StatusChip';
 import { useProcurement } from '../../store/ProcurementStore';
 
 const quickActions = [
-  { label: 'Create Requisition', icon: <AssignmentRoundedIcon />, path: '/procurement/requisitions/new' },
-  { label: 'Create RFQ', icon: <RequestQuoteRoundedIcon />, path: '/procurement/rfqs/new' },
+  { label: 'Guided Purchase', icon: <RequestQuoteRoundedIcon />, path: '/procurement/guided-purchase' },
   { label: 'Create Purchase Order', icon: <ShoppingCartRoundedIcon />, path: '/procurement/purchase-orders/new' },
   { label: 'Receive Goods', icon: <Inventory2RoundedIcon />, path: '/procurement/grn/new' },
 ];

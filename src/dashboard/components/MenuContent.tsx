@@ -32,12 +32,10 @@ const mainListItems: NavItem[] = [
     children: [
       { text: 'Dashboard', path: '/procurement', exact: true },
       { text: 'Guided Purchase', path: '/procurement/guided-purchase' },
-      { text: 'Material Requisition', path: '/procurement/requisitions' },
       { text: 'Vendors', path: '/procurement/vendors' },
       { text: 'RFQs', path: '/procurement/rfqs' },
       { text: 'Purchase Orders', path: '/procurement/purchase-orders' },
       { text: 'Goods Receipt (GRN)', path: '/procurement/grn' },
-      { text: 'Procurement Reports', path: '/procurement/reports' },
     ],
   },
   {
