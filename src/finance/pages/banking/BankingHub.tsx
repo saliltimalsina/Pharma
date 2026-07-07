@@ -30,8 +30,8 @@ export default function BankingHub() {
   const pendingReconciliation = bankTransactions.filter((t) => !t.reconciled).length;
 
   const kpis = [
-    { title: 'Total Cash', value: `$${totalCash.toLocaleString()}`, icon: <PaidRoundedIcon />, color: 'primary' as const },
-    { title: 'Total Bank Balance', value: `$${totalBank.toLocaleString()}`, icon: <AccountBalanceRoundedIcon />, color: 'primary' as const },
+    { title: 'Total Cash', value: `NPR ${totalCash.toLocaleString()}`, icon: <PaidRoundedIcon />, color: 'primary' as const },
+    { title: 'Total Bank Balance', value: `NPR ${totalBank.toLocaleString()}`, icon: <AccountBalanceRoundedIcon />, color: 'primary' as const },
     { title: 'Pending Reconciliation', value: `${pendingReconciliation}`, icon: <RuleRoundedIcon />, color: 'warning' as const },
   ];
 
@@ -53,7 +53,7 @@ export default function BankingHub() {
               <TableCell sx={{ fontWeight: 500 }}>{a.bankName}</TableCell>
               <TableCell>{a.accountNumber}</TableCell>
               <TableCell>{a.currency}</TableCell>
-              <TableCell align="right">${a.balance.toLocaleString()}</TableCell>
+              <TableCell align="right">NPR {a.balance.toLocaleString()}</TableCell>
               <TableCell><StatusChip status={a.status} /></TableCell>
             </TableRow>
           ))}
@@ -81,9 +81,9 @@ export default function BankingHub() {
               <TableCell sx={{ fontWeight: 500 }}>{t.transactionId}</TableCell>
               <TableCell>{t.date}</TableCell>
               <TableCell>{t.description}</TableCell>
-              <TableCell align="right">{t.debit ? `$${t.debit.toLocaleString()}` : '—'}</TableCell>
-              <TableCell align="right">{t.credit ? `$${t.credit.toLocaleString()}` : '—'}</TableCell>
-              <TableCell align="right">${t.balance.toLocaleString()}</TableCell>
+              <TableCell align="right">{t.debit ? `NPR ${t.debit.toLocaleString()}` : '—'}</TableCell>
+              <TableCell align="right">{t.credit ? `NPR ${t.credit.toLocaleString()}` : '—'}</TableCell>
+              <TableCell align="right">NPR {t.balance.toLocaleString()}</TableCell>
             </TableRow>
           ))}
         </TableBody>

@@ -129,7 +129,7 @@ function CostAnalysisPanel({
               <TableRow key={r.label} hover>
                 <TableCell sx={{ fontWeight: 500 }}>{r.label}</TableCell>
                 <TableCell align="right">{r.orders}</TableCell>
-                <TableCell align="right">${r.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                <TableCell align="right">NPR {r.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
                 <TableCell align="right">{grandTotal ? Math.round((r.total / grandTotal) * 100) : 0}%</TableCell>
               </TableRow>
             ))}
@@ -137,7 +137,7 @@ function CostAnalysisPanel({
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>{rows.reduce((s, r) => s + r.orders, 0)}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>${grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>NPR {grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>100%</TableCell>
               </TableRow>
             )}
@@ -266,7 +266,7 @@ export default function ProcurementReports() {
               <TableRow key={vendor.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/procurement/vendors/${vendor.id}`)}>
                 <TableCell sx={{ fontWeight: 500 }}>{vendor.name}</TableCell>
                 <TableCell align="right">{perf.totalOrders}</TableCell>
-                <TableCell align="right">${perf.totalPurchase.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                <TableCell align="right">NPR {perf.totalPurchase.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
                 <TableCell align="right">{perf.onTimePct === null ? '—' : `${perf.onTimePct}%`}</TableCell>
                 <TableCell align="right">{perf.avgLeadDays === null ? '—' : perf.avgLeadDays}</TableCell>
                 <TableCell align="right">{perf.rejectedPct === null ? '—' : `${perf.rejectedPct}%`}</TableCell>

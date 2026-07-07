@@ -191,7 +191,7 @@ export default function InventoryDashboard() {
   }, 0);
 
   const kpis = [
-    { title: 'Total Inventory Value', value: `$${Math.round(totalValue).toLocaleString()}`, icon: <Inventory2RoundedIcon />, color: 'success' as const },
+    { title: 'Total Inventory Value', value: `NPR ${Math.round(totalValue).toLocaleString()}`, icon: <Inventory2RoundedIcon />, color: 'success' as const },
     { title: 'Total Products', value: `${items.length}`, icon: <Category2RoundedIcon />, color: 'primary' as const, helper: `${items.filter((i) => i.status === 'Active').length} active` },
     { title: 'Low Stock Items', value: `${lowStockCount}`, icon: <WarningAmberRoundedIcon />, color: 'warning' as const, helper: 'Below reorder level' },
     { title: 'Below Safety Stock', value: `${belowSafetyCount}`, icon: <WarningAmberRoundedIcon />, color: 'error' as const, helper: 'At or below safety level' },
@@ -257,7 +257,7 @@ export default function InventoryDashboard() {
                   <TableCell sx={{ fontWeight: 500 }}>{type}</TableCell>
                   <TableCell align="right">{v.count.toLocaleString()}</TableCell>
                   <TableCell align="right">{v.onHand.toLocaleString()}</TableCell>
-                  <TableCell align="right">${Math.round(v.value).toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {Math.round(v.value).toLocaleString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

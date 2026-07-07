@@ -47,7 +47,7 @@ function RecentActivity() {
       items: invoices.slice(0, 5).map((inv) => ({
         id: inv.id,
         primary: `${inv.invoiceNo} · ${customerById(inv.customerId)?.name}`,
-        secondary: `${inv.invoiceDate} · $${inv.amount.toLocaleString()}`,
+        secondary: `${inv.invoiceDate} · NPR ${inv.amount.toLocaleString()}`,
         status: inv.status,
         path: `/finance/invoices/${inv.id}`,
       })),
@@ -57,7 +57,7 @@ function RecentActivity() {
       items: supplierBills.slice(0, 5).map((b) => ({
         id: b.id,
         primary: `${b.billNo} · ${b.vendorName}`,
-        secondary: `${b.invoiceDate} · $${b.amount.toLocaleString()}`,
+        secondary: `${b.invoiceDate} · NPR ${b.amount.toLocaleString()}`,
         status: b.status,
         path: `/finance/bills/${b.id}`,
       })),
@@ -67,7 +67,7 @@ function RecentActivity() {
       items: payments.slice(0, 5).map((p) => ({
         id: p.id,
         primary: `${p.paymentNo} · ${p.partyName}`,
-        secondary: `${p.date} · $${p.amount.toLocaleString()}`,
+        secondary: `${p.date} · NPR ${p.amount.toLocaleString()}`,
         status: p.status,
         path: `/finance/payments/${p.id}`,
       })),
@@ -77,7 +77,7 @@ function RecentActivity() {
       items: journalEntries.slice(0, 5).map((j) => ({
         id: j.id,
         primary: `${j.journalNo} · ${j.description}`,
-        secondary: `${j.date} · $${j.amount.toLocaleString()}`,
+        secondary: `${j.date} · NPR ${j.amount.toLocaleString()}`,
         status: j.status,
         path: `/finance/accounting`,
       })),
@@ -126,10 +126,10 @@ export default function FinanceDashboard() {
     supplierBills.filter((b) => ['Pending Verification', 'Approved', 'Partially Paid'].includes(b.status)).length;
 
   const kpis = [
-    { title: 'Outstanding Receivables', value: `$${outstandingReceivables.toLocaleString()}`, icon: <TrendingUpRoundedIcon />, color: 'warning' as const, helper: `${invoices.filter((i) => i.status === 'Overdue').length} overdue` },
-    { title: 'Outstanding Payables', value: `$${outstandingPayables.toLocaleString()}`, icon: <TrendingDownRoundedIcon />, color: 'warning' as const },
-    { title: 'Cash Balance', value: `$${cashBalance.toLocaleString()}`, icon: <PaidRoundedIcon />, color: 'primary' as const },
-    { title: 'Bank Balance', value: `$${bankBalance.toLocaleString()}`, icon: <AccountBalanceRoundedIcon />, color: 'primary' as const, helper: `${bankAccounts.length} accounts` },
+    { title: 'Outstanding Receivables', value: `NPR ${outstandingReceivables.toLocaleString()}`, icon: <TrendingUpRoundedIcon />, color: 'warning' as const, helper: `${invoices.filter((i) => i.status === 'Overdue').length} overdue` },
+    { title: 'Outstanding Payables', value: `NPR ${outstandingPayables.toLocaleString()}`, icon: <TrendingDownRoundedIcon />, color: 'warning' as const },
+    { title: 'Cash Balance', value: `NPR ${cashBalance.toLocaleString()}`, icon: <PaidRoundedIcon />, color: 'primary' as const },
+    { title: 'Bank Balance', value: `NPR ${bankBalance.toLocaleString()}`, icon: <AccountBalanceRoundedIcon />, color: 'primary' as const, helper: `${bankAccounts.length} accounts` },
     { title: 'Pending Payments', value: `${pendingPayments}`, icon: <PendingActionsRoundedIcon />, color: 'info' as const },
   ];
 

@@ -104,7 +104,7 @@ export default function VoucherView() {
             <CardContent>
               <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="subtitle1">Amount</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>${payment.amount.toLocaleString()}</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 700 }}>NPR {payment.amount.toLocaleString()}</Typography>
               </Stack>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 {amountInWords(payment.amount)} dollars only

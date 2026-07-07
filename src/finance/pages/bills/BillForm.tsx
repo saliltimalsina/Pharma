@@ -130,9 +130,9 @@ export default function BillForm() {
                       <TableCell sx={{ fontWeight: 500 }}>{l.product}</TableCell>
                       <TableCell>{l.batchNumber}</TableCell>
                       <TableCell align="right">{l.quantity.toLocaleString()}</TableCell>
-                      <TableCell align="right">${l.unitCost}</TableCell>
+                      <TableCell align="right">NPR {l.unitCost}</TableCell>
                       <TableCell align="right">{l.vat}%</TableCell>
-                      <TableCell align="right">${total.toFixed(2)}</TableCell>
+                      <TableCell align="right">NPR {total.toFixed(2)}</TableCell>
                     </TableRow>
                   );
                 })}
@@ -157,7 +157,7 @@ export default function BillForm() {
               <CardHeader title="Payment" slotProps={{ title: { variant: 'subtitle2' } }} />
               <CardContent sx={{ pt: 0 }}>
                 <Stack spacing={1}>
-                  <Typography variant="body2">Outstanding Amount: <strong>${amount.toFixed(2)}</strong></Typography>
+                  <Typography variant="body2">Outstanding Amount: <strong>NPR {amount.toFixed(2)}</strong></Typography>
                   <Typography variant="body2">Due Date: {dueDate || '—'}</Typography>
                 </Stack>
               </CardContent>

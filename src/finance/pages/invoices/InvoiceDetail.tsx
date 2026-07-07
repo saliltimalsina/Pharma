@@ -81,10 +81,10 @@ export default function InvoiceDetail() {
             <Typography variant="subtitle2" gutterBottom>Status</Typography>
             <StatusChip status={invoice.status} />
             <Stack sx={{ mt: 2, gap: 1.5 }}>
-              <LabeledValue label="Amount" value={`$${invoice.amount.toLocaleString()}`} />
-              <LabeledValue label="Paid" value={`$${invoice.paid.toLocaleString()}`} />
-              {credited > 0 && <LabeledValue label="Credited" value={`$${credited.toLocaleString()}`} />}
-              <LabeledValue label="Balance" value={`$${balance.toLocaleString()}`} />
+              <LabeledValue label="Amount" value={`NPR ${invoice.amount.toLocaleString()}`} />
+              <LabeledValue label="Paid" value={`NPR ${invoice.paid.toLocaleString()}`} />
+              {credited > 0 && <LabeledValue label="Credited" value={`NPR ${credited.toLocaleString()}`} />}
+              <LabeledValue label="Balance" value={`NPR ${balance.toLocaleString()}`} />
             </Stack>
           </CardContent>
         </Card>
@@ -115,10 +115,10 @@ export default function InvoiceDetail() {
               <TableCell sx={{ fontWeight: 500 }}>{line.product}</TableCell>
               <TableCell>{line.batchNumber}</TableCell>
               <TableCell align="right">{line.quantity.toLocaleString()}</TableCell>
-              <TableCell align="right">${line.unitPrice}</TableCell>
+              <TableCell align="right">NPR {line.unitPrice}</TableCell>
               <TableCell align="right">{line.discount}%</TableCell>
               <TableCell align="right">{line.vat}%</TableCell>
-              <TableCell align="right">${lineTotal(line).toFixed(2)}</TableCell>
+              <TableCell align="right">NPR {lineTotal(line).toFixed(2)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -146,7 +146,7 @@ export default function InvoiceDetail() {
               <TableCell sx={{ fontWeight: 500 }}>{p.paymentNo}</TableCell>
               <TableCell>{p.date}</TableCell>
               <TableCell>{p.method}</TableCell>
-              <TableCell align="right">${p.amount.toLocaleString()}</TableCell>
+              <TableCell align="right">NPR {p.amount.toLocaleString()}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -175,7 +175,7 @@ export default function InvoiceDetail() {
               <TableCell sx={{ fontWeight: 500 }}>{n.creditNoteNo}</TableCell>
               <TableCell>{n.date}</TableCell>
               <TableCell>{n.reason || '—'}</TableCell>
-              <TableCell align="right">${n.amount.toLocaleString()}</TableCell>
+              <TableCell align="right">NPR {n.amount.toLocaleString()}</TableCell>
               <TableCell><StatusChip status={n.status} /></TableCell>
             </TableRow>
           ))}

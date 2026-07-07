@@ -169,8 +169,8 @@ export default function FinancialReports() {
                   {chartOfAccounts.map((a) => (
                     <TableRow key={a.code} hover>
                       <TableCell>{a.name}</TableCell>
-                      <TableCell align="right">{['Asset', 'Expense'].includes(a.type) ? `$${a.balance.toLocaleString()}` : '—'}</TableCell>
-                      <TableCell align="right">{['Liability', 'Equity', 'Revenue'].includes(a.type) ? `$${a.balance.toLocaleString()}` : '—'}</TableCell>
+                      <TableCell align="right">{['Asset', 'Expense'].includes(a.type) ? `NPR ${a.balance.toLocaleString()}` : '—'}</TableCell>
+                      <TableCell align="right">{['Liability', 'Equity', 'Revenue'].includes(a.type) ? `NPR ${a.balance.toLocaleString()}` : '—'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -182,19 +182,19 @@ export default function FinancialReports() {
           <Card variant="outlined">
             <CardContent>
               <Typography variant="subtitle2" gutterBottom>Profit &amp; Loss</Typography>
-              <AnalyticsRow label="Revenue" value={`$${revenue.toLocaleString()}`} />
-              <AnalyticsRow label="Cost of Goods Sold" value={`-$${cogs.toLocaleString()}`} />
-              <AnalyticsRow label="Gross Profit" value={`$${grossProfit.toLocaleString()}`} />
-              <AnalyticsRow label="Operating Expenses" value={`-$${opex.toLocaleString()}`} />
-              <AnalyticsRow label="Net Profit" value={`$${netProfit.toLocaleString()}`} />
+              <AnalyticsRow label="Revenue" value={`NPR ${revenue.toLocaleString()}`} />
+              <AnalyticsRow label="Cost of Goods Sold" value={`-NPR ${cogs.toLocaleString()}`} />
+              <AnalyticsRow label="Gross Profit" value={`NPR ${grossProfit.toLocaleString()}`} />
+              <AnalyticsRow label="Operating Expenses" value={`-NPR ${opex.toLocaleString()}`} />
+              <AnalyticsRow label="Net Profit" value={`NPR ${netProfit.toLocaleString()}`} />
             </CardContent>
           </Card>
           <Card variant="outlined" sx={{ mt: 2 }}>
             <CardContent>
               <Typography variant="subtitle2" gutterBottom>Balance Sheet (summary)</Typography>
-              <AnalyticsRow label="Total Assets" value={`$${chartOfAccounts.filter((a) => a.type === 'Asset').reduce((s, a) => s + a.balance, 0).toLocaleString()}`} />
-              <AnalyticsRow label="Total Liabilities" value={`$${chartOfAccounts.filter((a) => a.type === 'Liability').reduce((s, a) => s + a.balance, 0).toLocaleString()}`} />
-              <AnalyticsRow label="Total Equity" value={`$${chartOfAccounts.filter((a) => a.type === 'Equity').reduce((s, a) => s + a.balance, 0).toLocaleString()}`} />
+              <AnalyticsRow label="Total Assets" value={`NPR ${chartOfAccounts.filter((a) => a.type === 'Asset').reduce((s, a) => s + a.balance, 0).toLocaleString()}`} />
+              <AnalyticsRow label="Total Liabilities" value={`NPR ${chartOfAccounts.filter((a) => a.type === 'Liability').reduce((s, a) => s + a.balance, 0).toLocaleString()}`} />
+              <AnalyticsRow label="Total Equity" value={`NPR ${chartOfAccounts.filter((a) => a.type === 'Equity').reduce((s, a) => s + a.balance, 0).toLocaleString()}`} />
             </CardContent>
           </Card>
         </Grid>
@@ -216,8 +216,8 @@ export default function FinancialReports() {
               {salesByCustomer.map((c) => (
                 <TableRow key={c.id} hover>
                   <TableCell sx={{ fontWeight: 500 }}>{c.name}</TableCell>
-                  <TableCell align="right">${c.invoiced.toLocaleString()}</TableCell>
-                  <TableCell align="right">${c.outstanding.toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {c.invoiced.toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {c.outstanding.toLocaleString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -239,7 +239,7 @@ export default function FinancialReports() {
                   <TableRow key={p} hover>
                     <TableCell sx={{ fontWeight: 500 }}>{p}</TableCell>
                     <TableCell align="right">{qty.toLocaleString()}</TableCell>
-                    <TableCell align="right">${rev.toLocaleString()}</TableCell>
+                    <TableCell align="right">NPR {rev.toLocaleString()}</TableCell>
                   </TableRow>
                 );
               })}
@@ -264,8 +264,8 @@ export default function FinancialReports() {
               {purchasesBySupplier.map((v) => (
                 <TableRow key={v.id} hover>
                   <TableCell sx={{ fontWeight: 500 }}>{v.name}</TableCell>
-                  <TableCell align="right">${v.billed.toLocaleString()}</TableCell>
-                  <TableCell align="right">${v.outstanding.toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {v.billed.toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {v.outstanding.toLocaleString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -290,7 +290,7 @@ export default function FinancialReports() {
                 <TableRow key={i.id} hover>
                   <TableCell sx={{ fontWeight: 500 }}>{customerById(i.customerId)?.name}</TableCell>
                   <TableCell>{i.invoiceNo}</TableCell>
-                  <TableCell align="right">${invoiceBalance(i).toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {invoiceBalance(i).toLocaleString()}</TableCell>
                 </TableRow>
               ))}
               {overdueInvoices.length === 0 && (
@@ -325,8 +325,8 @@ export default function FinancialReports() {
               {cashFlowRows.map((r) => (
                 <TableRow key={r.month} hover>
                   <TableCell sx={{ fontWeight: 500 }}>{r.month}</TableCell>
-                  <TableCell align="right">${r.inflow.toLocaleString()}</TableCell>
-                  <TableCell align="right">${r.outflow.toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {r.inflow.toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {r.outflow.toLocaleString()}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>{r.net < 0 ? '-' : ''}${Math.abs(r.net).toLocaleString()}</TableCell>
                 </TableRow>
               ))}
@@ -335,8 +335,8 @@ export default function FinancialReports() {
               <TableBody>
                 <TableRow sx={{ bgcolor: 'action.hover' }}>
                   <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>${totalInflow.toLocaleString()}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>${totalOutflow.toLocaleString()}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>NPR {totalInflow.toLocaleString()}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>NPR {totalOutflow.toLocaleString()}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>{netCashChange < 0 ? '-' : ''}${Math.abs(netCashChange).toLocaleString()}</TableCell>
                 </TableRow>
               </TableBody>

@@ -74,9 +74,9 @@ export default function TaxesHub() {
     );
 
   const kpis = [
-    { title: 'VAT Collected', value: `$${vatCollected.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: <ReceiptRoundedIcon />, color: 'success' as const },
-    { title: 'VAT Paid', value: `$${vatPaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: <PaidRoundedIcon />, color: 'primary' as const },
-    { title: 'Tax Payable', value: `${taxPayable < 0 ? '-' : ''}$${Math.abs(taxPayable).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: <AccountBalanceWalletRoundedIcon />, color: 'warning' as const },
+    { title: 'VAT Collected', value: `NPR ${vatCollected.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: <ReceiptRoundedIcon />, color: 'success' as const },
+    { title: 'VAT Paid', value: `NPR ${vatPaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: <PaidRoundedIcon />, color: 'primary' as const },
+    { title: 'Tax Payable', value: `${taxPayable < 0 ? '-' : ''}NPR ${Math.abs(taxPayable).toLocaleString(undefined, { maximumFractionDigits: 0 })}`, icon: <AccountBalanceWalletRoundedIcon />, color: 'warning' as const },
   ];
 
   const purchaseVatTab = (
@@ -96,7 +96,7 @@ export default function TaxesHub() {
               <TableRow key={b.id} hover>
                 <TableCell sx={{ fontWeight: 500 }}>{b.vendorName}</TableCell>
                 <TableCell>{b.billNo}</TableCell>
-                <TableCell align="right">${vat.toFixed(2)}</TableCell>
+                <TableCell align="right">NPR {vat.toFixed(2)}</TableCell>
               </TableRow>
             );
           })}
@@ -123,8 +123,8 @@ export default function TaxesHub() {
               <TableRow key={i.id} hover>
                 <TableCell sx={{ fontWeight: 500 }}>{customerById(i.customerId)?.name}</TableCell>
                 <TableCell>{i.invoiceNo}</TableCell>
-                <TableCell align="right">${vat.toFixed(2)}</TableCell>
-                <TableCell align="right">${(i.status === 'Paid' || i.status === 'Partially Paid' ? vat : 0).toFixed(2)}</TableCell>
+                <TableCell align="right">NPR {vat.toFixed(2)}</TableCell>
+                <TableCell align="right">NPR {(i.status === 'Paid' || i.status === 'Partially Paid' ? vat : 0).toFixed(2)}</TableCell>
               </TableRow>
             );
           })}
@@ -157,8 +157,8 @@ export default function TaxesHub() {
               {vatByPeriod.map((r) => (
                 <TableRow key={r.month} hover>
                   <TableCell sx={{ fontWeight: 500 }}>{r.month}</TableCell>
-                  <TableCell align="right">${r.salesVat.toFixed(2)}</TableCell>
-                  <TableCell align="right">${r.purchaseVat.toFixed(2)}</TableCell>
+                  <TableCell align="right">NPR {r.salesVat.toFixed(2)}</TableCell>
+                  <TableCell align="right">NPR {r.purchaseVat.toFixed(2)}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 600 }}>{r.net < 0 ? '-' : ''}${Math.abs(r.net).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
@@ -167,8 +167,8 @@ export default function TaxesHub() {
               <TableBody>
                 <TableRow sx={{ bgcolor: 'action.hover' }}>
                   <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>${vatCollected.toFixed(2)}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>${vatPaid.toFixed(2)}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>NPR {vatCollected.toFixed(2)}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>NPR {vatPaid.toFixed(2)}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>{taxPayable < 0 ? '-' : ''}${Math.abs(taxPayable).toFixed(2)}</TableCell>
                 </TableRow>
               </TableBody>

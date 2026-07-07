@@ -100,9 +100,9 @@ export default function AdvancesList() {
                 <TableCell>{a.date}</TableCell>
                 <TableCell>{a.direction}</TableCell>
                 <TableCell>{a.partyName}</TableCell>
-                <TableCell align="right">${a.amount.toLocaleString()}</TableCell>
-                <TableCell align="right">${a.allocated.toLocaleString()}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>${remaining.toLocaleString()}</TableCell>
+                <TableCell align="right">NPR {a.amount.toLocaleString()}</TableCell>
+                <TableCell align="right">NPR {a.allocated.toLocaleString()}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>NPR {remaining.toLocaleString()}</TableCell>
                 <TableCell align="right">
                   <Button size="small" disabled={remaining <= 0} onClick={() => openDialog(a)}>Apply</Button>
                 </TableCell>
@@ -134,7 +134,7 @@ export default function AdvancesList() {
               <TableCell sx={{ fontWeight: 500 }}>{ap.advanceNo}</TableCell>
               <TableCell>{ap.date}</TableCell>
               <TableCell>{ap.targetRef}</TableCell>
-              <TableCell align="right">${ap.amount.toLocaleString()}</TableCell>
+              <TableCell align="right">NPR {ap.amount.toLocaleString()}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -143,9 +143,9 @@ export default function AdvancesList() {
   );
 
   const kpis = [
-    { title: 'Unallocated Advances', value: `$${totalUnallocated.toLocaleString()}`, icon: <AccountBalanceWalletRoundedIcon />, color: 'primary' as const },
-    { title: 'Customer Advances', value: `$${customerAdvances.toLocaleString()}`, icon: <PaidRoundedIcon />, color: 'success' as const },
-    { title: 'Supplier Advances', value: `$${supplierAdvances.toLocaleString()}`, icon: <PaidRoundedIcon />, color: 'warning' as const },
+    { title: 'Unallocated Advances', value: `NPR ${totalUnallocated.toLocaleString()}`, icon: <AccountBalanceWalletRoundedIcon />, color: 'primary' as const },
+    { title: 'Customer Advances', value: `NPR ${customerAdvances.toLocaleString()}`, icon: <PaidRoundedIcon />, color: 'success' as const },
+    { title: 'Supplier Advances', value: `NPR ${supplierAdvances.toLocaleString()}`, icon: <PaidRoundedIcon />, color: 'warning' as const },
   ];
 
   return (
@@ -196,7 +196,7 @@ export default function AdvancesList() {
             <FormField
               fullWidth
               type="number"
-              label={`Amount to Apply (max $${maxApplicable.toLocaleString()})`}
+              label={`Amount to Apply (max NPR ${maxApplicable.toLocaleString()})`}
               value={applyAmount}
               onChange={(e) => setApplyAmount(Number(e.target.value))}
             />

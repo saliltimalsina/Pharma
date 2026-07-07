@@ -115,7 +115,7 @@ export default function StockDetail() {
               <LabeledValue label="Reserved Quantity" value={stock.reservedQty.toLocaleString()} />
               <LabeledValue label="Damaged Quantity" value={stock.damagedQty.toLocaleString()} />
               <LabeledValue label="Pending Inspection" value={stock.pendingInspectionQty.toLocaleString()} />
-              <LabeledValue label="Total Value" value={item ? `$${(item.averageCost * stock.availableQty).toLocaleString()}` : '—'} />
+              <LabeledValue label="Total Value" value={item ? `NPR ${(item.averageCost * stock.availableQty).toLocaleString()}` : '—'} />
             </Stack>
           </CardContent>
         </Card>

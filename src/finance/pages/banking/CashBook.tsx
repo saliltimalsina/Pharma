@@ -109,9 +109,9 @@ export default function CashBook() {
     );
 
   const kpis = [
-    { title: 'Cash on Hand', value: `$${closingBalance.toLocaleString()}`, icon: <PaidRoundedIcon />, color: 'primary' as const },
-    { title: 'Total Cash In', value: `$${totalIn.toLocaleString()}`, icon: <TrendingUpRoundedIcon />, color: 'success' as const },
-    { title: 'Total Cash Out', value: `$${totalOut.toLocaleString()}`, icon: <TrendingDownRoundedIcon />, color: 'warning' as const },
+    { title: 'Cash on Hand', value: `NPR ${closingBalance.toLocaleString()}`, icon: <PaidRoundedIcon />, color: 'primary' as const },
+    { title: 'Total Cash In', value: `NPR ${totalIn.toLocaleString()}`, icon: <TrendingUpRoundedIcon />, color: 'success' as const },
+    { title: 'Total Cash Out', value: `NPR ${totalOut.toLocaleString()}`, icon: <TrendingDownRoundedIcon />, color: 'warning' as const },
   ];
 
   return (
@@ -145,24 +145,24 @@ export default function CashBook() {
           <TableBody>
             <TableRow sx={{ bgcolor: 'action.hover' }}>
               <TableCell colSpan={5} sx={{ fontWeight: 600 }}>Opening Balance</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 600 }}>${openingBalance.toLocaleString()}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600 }}>NPR {openingBalance.toLocaleString()}</TableCell>
             </TableRow>
             {withRunning.map((m, i) => (
               <TableRow key={i} hover>
                 <TableCell>{m.date}</TableCell>
                 <TableCell sx={{ fontWeight: 500 }}>{m.particulars}</TableCell>
                 <TableCell>{m.reference}</TableCell>
-                <TableCell align="right">{m.cashIn ? `$${m.cashIn.toLocaleString()}` : '—'}</TableCell>
-                <TableCell align="right">{m.cashOut ? `$${m.cashOut.toLocaleString()}` : '—'}</TableCell>
-                <TableCell align="right">${m.balance.toLocaleString()}</TableCell>
+                <TableCell align="right">{m.cashIn ? `NPR ${m.cashIn.toLocaleString()}` : '—'}</TableCell>
+                <TableCell align="right">{m.cashOut ? `NPR ${m.cashOut.toLocaleString()}` : '—'}</TableCell>
+                <TableCell align="right">NPR {m.balance.toLocaleString()}</TableCell>
               </TableRow>
             ))}
             <TableRow sx={{ bgcolor: 'action.hover' }}>
               <TableCell sx={{ fontWeight: 700 }}>Closing Balance</TableCell>
               <TableCell colSpan={2} />
-              <TableCell align="right" sx={{ fontWeight: 700 }}>${totalIn.toLocaleString()}</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700 }}>${totalOut.toLocaleString()}</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700 }}>${closingBalance.toLocaleString()}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700 }}>NPR {totalIn.toLocaleString()}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700 }}>NPR {totalOut.toLocaleString()}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 700 }}>NPR {closingBalance.toLocaleString()}</TableCell>
             </TableRow>
           </TableBody>
         </Table>

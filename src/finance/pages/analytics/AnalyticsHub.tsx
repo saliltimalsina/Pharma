@@ -65,8 +65,8 @@ export default function AnalyticsHub() {
   }, [journalEntries]);
 
   const kpis = [
-    { title: 'Total Revenue', value: `$${totalRevenue.toLocaleString()}`, icon: <TrendingUpRoundedIcon />, color: 'success' as const },
-    { title: 'Total Expense', value: `$${totalExpense.toLocaleString()}`, icon: <TrendingDownRoundedIcon />, color: 'warning' as const },
+    { title: 'Total Revenue', value: `NPR ${totalRevenue.toLocaleString()}`, icon: <TrendingUpRoundedIcon />, color: 'success' as const },
+    { title: 'Total Expense', value: `NPR ${totalExpense.toLocaleString()}`, icon: <TrendingDownRoundedIcon />, color: 'warning' as const },
     { title: 'Cost Centres', value: `${byCostCenter.filter((c) => c.costCenter !== 'Unassigned').length}`, icon: <AccountTreeRoundedIcon />, color: 'primary' as const },
   ];
 
@@ -102,7 +102,7 @@ export default function AnalyticsHub() {
                     <TableRow key={r.product} hover>
                       <TableCell sx={{ fontWeight: 500 }}>{r.product}</TableCell>
                       <TableCell align="right">{r.units.toLocaleString()}</TableCell>
-                      <TableCell align="right">${r.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
+                      <TableCell align="right">NPR {r.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -122,7 +122,7 @@ export default function AnalyticsHub() {
                   {revenueAccounts.map((a) => (
                     <TableRow key={a.code} hover>
                       <TableCell sx={{ fontWeight: 500 }}>{a.name}</TableCell>
-                      <TableCell align="right">${a.balance.toLocaleString()}</TableCell>
+                      <TableCell align="right">NPR {a.balance.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -159,7 +159,7 @@ export default function AnalyticsHub() {
               {expenseAccounts.map((a) => (
                 <TableRow key={a.code} hover>
                   <TableCell sx={{ fontWeight: 500 }}>{a.name}</TableCell>
-                  <TableCell align="right">${a.balance.toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {a.balance.toLocaleString()}</TableCell>
                   <TableCell align="right">{totalExpense ? ((a.balance / totalExpense) * 100).toFixed(1) : '0.0'}%</TableCell>
                 </TableRow>
               ))}
@@ -197,7 +197,7 @@ export default function AnalyticsHub() {
                 <TableRow key={r.costCenter} hover>
                   <TableCell sx={{ fontWeight: 500 }}>{r.costCenter}</TableCell>
                   <TableCell align="right">{r.count}</TableCell>
-                  <TableCell align="right">${r.total.toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {r.total.toLocaleString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

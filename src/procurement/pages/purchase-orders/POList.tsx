@@ -28,7 +28,7 @@ const columns: GridColDef[] = [
     minWidth: 130,
     headerAlign: 'right',
     align: 'right',
-    valueFormatter: (value: number) => `$${value.toLocaleString()}`,
+    valueFormatter: (value: number) => `NPR ${value.toLocaleString()}`,
   },
   {
     field: 'status',

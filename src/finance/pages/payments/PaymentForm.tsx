@@ -202,13 +202,13 @@ export default function PaymentForm() {
                   <FormField fullWidth label={isCustomer ? 'Customer' : 'Supplier'} value={partyName} disabled />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
-                  <FormField fullWidth label="Outstanding Balance" value={`$${outstandingBalance.toFixed(2)}`} disabled />
+                  <FormField fullWidth label="Outstanding Balance" value={`NPR ${outstandingBalance.toFixed(2)}`} disabled />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <FormField fullWidth type="number" label="Paid Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
-                  <FormField fullWidth label="Remaining Balance" value={`$${remainingBalance.toFixed(2)}`} disabled />
+                  <FormField fullWidth label="Remaining Balance" value={`NPR ${remainingBalance.toFixed(2)}`} disabled />
                 </Grid>
               </Grid>
             </CardContent>

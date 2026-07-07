@@ -79,7 +79,7 @@ export default function CreditNoteForm() {
                 <FormField fullWidth label="Customer" value={customer?.name ?? ''} disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth label="Outstanding Balance" value={`$${outstanding.toFixed(2)}`} disabled />
+                <FormField fullWidth label="Outstanding Balance" value={`NPR ${outstanding.toFixed(2)}`} disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormField fullWidth type="number" label="Credit Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />

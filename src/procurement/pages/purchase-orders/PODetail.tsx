@@ -118,7 +118,7 @@ export default function PODetail() {
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Warehouse" value={po.warehouse} /></Grid>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Department" value={po.department} /></Grid>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Created By" value={po.createdBy} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Amount" value={`$${po.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Amount" value={`NPR ${po.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`} /></Grid>
             </Grid>
           </CardContent>
         </Card>
@@ -163,10 +163,10 @@ export default function PODetail() {
               <TableCell>{item.description}</TableCell>
               <TableCell align="right">{item.qty}</TableCell>
               <TableCell>{item.unit}</TableCell>
-              <TableCell align="right">${item.unitPrice}</TableCell>
+              <TableCell align="right">NPR {item.unitPrice}</TableCell>
               <TableCell align="right">{item.discount}%</TableCell>
               <TableCell align="right">{item.vat}%</TableCell>
-              <TableCell align="right">${lineTotal(item).toFixed(2)}</TableCell>
+              <TableCell align="right">NPR {lineTotal(item).toFixed(2)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -324,7 +324,7 @@ export default function PODetail() {
                   <TableCell align="right"><TextField variant="standard" type="number" value={item.unitPrice} onChange={(e) => updateDraft(i, 'unitPrice', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
                   <TableCell align="right"><TextField variant="standard" type="number" value={item.discount} onChange={(e) => updateDraft(i, 'discount', Number(e.target.value))} sx={{ width: 70 }} /></TableCell>
                   <TableCell align="right"><TextField variant="standard" type="number" value={item.vat} onChange={(e) => updateDraft(i, 'vat', Number(e.target.value))} sx={{ width: 60 }} /></TableCell>
-                  <TableCell align="right">${lineTotal(item).toFixed(2)}</TableCell>
+                  <TableCell align="right">NPR {lineTotal(item).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -39,9 +39,9 @@ export default function AccountingHub() {
   const ap = chartOfAccounts.find((a) => a.code === '2000')?.balance ?? 0;
 
   const kpis: { title: string; value: string; icon: ReactElement<SvgIconProps>; color: 'primary' | 'info' | 'success' | 'warning' }[] = [
-    { title: 'General Ledger Balance', value: `$${totalAssets.toLocaleString()}`, icon: <AccountBalanceRoundedIcon />, color: 'primary' },
-    { title: 'Accounts Receivable', value: `$${ar.toLocaleString()}`, icon: <TrendingUpRoundedIcon />, color: 'success' },
-    { title: 'Accounts Payable', value: `$${ap.toLocaleString()}`, icon: <TrendingDownRoundedIcon />, color: 'warning' },
+    { title: 'General Ledger Balance', value: `NPR ${totalAssets.toLocaleString()}`, icon: <AccountBalanceRoundedIcon />, color: 'primary' },
+    { title: 'Accounts Receivable', value: `NPR ${ar.toLocaleString()}`, icon: <TrendingUpRoundedIcon />, color: 'success' },
+    { title: 'Accounts Payable', value: `NPR ${ap.toLocaleString()}`, icon: <TrendingDownRoundedIcon />, color: 'warning' },
     { title: 'Trial Balance Status', value: isBalanced ? 'Balanced' : 'Review', icon: <FactCheckRoundedIcon />, color: isBalanced ? 'success' : 'warning' },
   ];
 
@@ -63,7 +63,7 @@ export default function AccountingHub() {
               <TableCell>{a.code}</TableCell>
               <TableCell sx={{ fontWeight: 500 }}>{a.name}</TableCell>
               <TableCell>{a.type}</TableCell>
-              <TableCell align="right">${a.balance.toLocaleString()}</TableCell>
+              <TableCell align="right">NPR {a.balance.toLocaleString()}</TableCell>
               <TableCell><StatusChip status={a.status} /></TableCell>
             </TableRow>
           ))}
@@ -102,7 +102,7 @@ export default function AccountingHub() {
                 <TableCell>{j.debitAccount}</TableCell>
                 <TableCell>{j.creditAccount}</TableCell>
                 <TableCell>{j.costCenter ?? '—'}</TableCell>
-                <TableCell align="right">${j.amount.toLocaleString()}</TableCell>
+                <TableCell align="right">NPR {j.amount.toLocaleString()}</TableCell>
                 <TableCell><StatusChip status={j.status} /></TableCell>
               </TableRow>
             ))}
@@ -132,10 +132,10 @@ export default function AccountingHub() {
             return (
               <TableRow key={a.code} hover>
                 <TableCell sx={{ fontWeight: 500 }}>{a.name}</TableCell>
-                <TableCell align="right">${opening.toLocaleString()}</TableCell>
-                <TableCell align="right">${debit.toLocaleString()}</TableCell>
-                <TableCell align="right">${credit.toLocaleString()}</TableCell>
-                <TableCell align="right">${a.balance.toLocaleString()}</TableCell>
+                <TableCell align="right">NPR {opening.toLocaleString()}</TableCell>
+                <TableCell align="right">NPR {debit.toLocaleString()}</TableCell>
+                <TableCell align="right">NPR {credit.toLocaleString()}</TableCell>
+                <TableCell align="right">NPR {a.balance.toLocaleString()}</TableCell>
               </TableRow>
             );
           })}
@@ -164,7 +164,7 @@ export default function AccountingHub() {
               <TableRow key={i.id} hover>
                 <TableCell sx={{ fontWeight: 500 }}>{customerById(i.customerId)?.name}</TableCell>
                 <TableCell>{i.invoiceNo}</TableCell>
-                <TableCell align="right">${invoiceBalance(i).toLocaleString()}</TableCell>
+                <TableCell align="right">NPR {invoiceBalance(i).toLocaleString()}</TableCell>
                 <TableCell align="right">{days > 0 ? `${days}d overdue` : `${-days}d left`}</TableCell>
                 <TableCell><StatusChip status={i.status} /></TableCell>
                 <TableCell align="right">
@@ -197,7 +197,7 @@ export default function AccountingHub() {
             <TableRow key={b.id} hover>
               <TableCell sx={{ fontWeight: 500 }}>{b.vendorName}</TableCell>
               <TableCell>{b.billNo}</TableCell>
-              <TableCell align="right">${billBalance(b).toLocaleString()}</TableCell>
+              <TableCell align="right">NPR {billBalance(b).toLocaleString()}</TableCell>
               <TableCell>{b.dueDate}</TableCell>
               <TableCell><StatusChip status={b.status} /></TableCell>
               <TableCell align="right">

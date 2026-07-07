@@ -73,10 +73,10 @@ export default function BillDetail() {
             <Typography variant="subtitle2" gutterBottom>Status</Typography>
             <StatusChip status={bill.status} />
             <Stack sx={{ mt: 2, gap: 1.5 }}>
-              <LabeledValue label="Amount" value={`$${bill.amount.toLocaleString()}`} />
-              <LabeledValue label="Paid" value={`$${bill.paid.toLocaleString()}`} />
-              {credited > 0 && <LabeledValue label="Debited" value={`$${credited.toLocaleString()}`} />}
-              <LabeledValue label="Balance" value={`$${balance.toLocaleString()}`} />
+              <LabeledValue label="Amount" value={`NPR ${bill.amount.toLocaleString()}`} />
+              <LabeledValue label="Paid" value={`NPR ${bill.paid.toLocaleString()}`} />
+              {credited > 0 && <LabeledValue label="Debited" value={`NPR ${credited.toLocaleString()}`} />}
+              <LabeledValue label="Balance" value={`NPR ${balance.toLocaleString()}`} />
             </Stack>
           </CardContent>
         </Card>
@@ -91,7 +91,7 @@ export default function BillDetail() {
           <Chip size="small" color={bill.poMatch ? 'success' : 'default'} label="PO Match" />
           <Chip size="small" color={bill.grnMatch ? 'success' : 'warning'} label="GRN Match" />
           <Chip size="small" color={bill.invoiceMatch ? 'success' : 'error'} label="Invoice Match" />
-          <Chip size="small" label={`Difference: $${bill.difference.toLocaleString()}`} />
+          <Chip size="small" label={`Difference: NPR ${bill.difference.toLocaleString()}`} />
         </Stack>
         <Table size="small">
           <TableHead>
@@ -109,7 +109,7 @@ export default function BillDetail() {
                 <TableCell sx={{ fontWeight: 500 }}>{l.product}</TableCell>
                 <TableCell>{l.batchNumber}</TableCell>
                 <TableCell align="right">{l.quantity.toLocaleString()}</TableCell>
-                <TableCell align="right">${l.unitCost}</TableCell>
+                <TableCell align="right">NPR {l.unitCost}</TableCell>
                 <TableCell align="right">{l.vat}%</TableCell>
               </TableRow>
             ))}
@@ -139,7 +139,7 @@ export default function BillDetail() {
               <TableCell sx={{ fontWeight: 500 }}>{p.paymentNo}</TableCell>
               <TableCell>{p.date}</TableCell>
               <TableCell>{p.method}</TableCell>
-              <TableCell align="right">${p.amount.toLocaleString()}</TableCell>
+              <TableCell align="right">NPR {p.amount.toLocaleString()}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -168,7 +168,7 @@ export default function BillDetail() {
               <TableCell sx={{ fontWeight: 500 }}>{n.debitNoteNo}</TableCell>
               <TableCell>{n.date}</TableCell>
               <TableCell>{n.reason || '—'}</TableCell>
-              <TableCell align="right">${n.amount.toLocaleString()}</TableCell>
+              <TableCell align="right">NPR {n.amount.toLocaleString()}</TableCell>
               <TableCell><StatusChip status={n.status} /></TableCell>
             </TableRow>
           ))}

@@ -45,7 +45,7 @@ const columns: GridColDef[] = [
     minWidth: 160,
     headerAlign: 'right',
     align: 'right',
-    valueFormatter: (value: number) => `$${value.toLocaleString()}`,
+    valueFormatter: (value: number) => `NPR ${value.toLocaleString()}`,
   },
   {
     field: 'rating',

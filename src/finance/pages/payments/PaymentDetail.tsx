@@ -63,7 +63,7 @@ export default function PaymentDetail() {
             <Typography variant="subtitle2" gutterBottom>Status</Typography>
             <StatusChip status={payment.status} />
             <Box sx={{ mt: 2 }}>
-              <LabeledValue label="Amount" value={`$${payment.amount.toLocaleString()}`} />
+              <LabeledValue label="Amount" value={`NPR ${payment.amount.toLocaleString()}`} />
             </Box>
           </CardContent>
         </Card>
@@ -78,9 +78,9 @@ export default function PaymentDetail() {
           <Grid size={{ xs: 6, sm: 3 }}>
             <LabeledValue label="Invoice / Bill" value={payment.invoiceOrBillRef} />
           </Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Outstanding Balance" value={`$${payment.outstandingBalance.toLocaleString()}`} /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Paid Amount" value={`$${payment.amount.toLocaleString()}`} /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Remaining Balance" value={`$${payment.remainingBalance.toLocaleString()}`} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Outstanding Balance" value={`NPR ${payment.outstandingBalance.toLocaleString()}`} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Paid Amount" value={`NPR ${payment.amount.toLocaleString()}`} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><LabeledValue label="Remaining Balance" value={`NPR ${payment.remainingBalance.toLocaleString()}`} /></Grid>
         </Grid>
         <Button variant="text" sx={{ mt: 2 }} onClick={() => navigate(targetPath)}>
           View {payment.type === 'Customer Payment' ? 'invoice' : 'bill'} →

@@ -96,7 +96,7 @@ export default function InventoryReports() {
                 <TableCell>{r.item.category}</TableCell>
                 <TableCell align="right">{r.available.toLocaleString()}</TableCell>
                 <TableCell align="right">{r.reserved.toLocaleString()}</TableCell>
-                <TableCell align="right">${r.valuation.toLocaleString()}</TableCell>
+                <TableCell align="right">NPR {r.valuation.toLocaleString()}</TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -260,7 +260,7 @@ export default function InventoryReports() {
                   <TableCell>{b.supplierName}</TableCell>
                   <TableCell>{b.manufacturingDate}</TableCell>
                   <TableCell>{b.expiryDate}</TableCell>
-                  <TableCell align="right">${item ? Math.round(item.averageCost * b.availableQty).toLocaleString() : 0}</TableCell>
+                  <TableCell align="right">NPR {item ? Math.round(item.averageCost * b.availableQty).toLocaleString() : 0}</TableCell>
                 </TableRow>
               );
             })}

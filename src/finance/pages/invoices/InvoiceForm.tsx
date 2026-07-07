@@ -171,7 +171,7 @@ export default function InvoiceForm() {
                     <TableCell><TextField variant="standard" type="number" fullWidth value={row.unitPrice} onChange={(e) => updateLine(row.key, 'unitPrice', Number(e.target.value))} /></TableCell>
                     <TableCell><TextField variant="standard" type="number" fullWidth value={row.discount} onChange={(e) => updateLine(row.key, 'discount', Number(e.target.value))} /></TableCell>
                     <TableCell><TextField variant="standard" type="number" fullWidth value={row.vat} onChange={(e) => updateLine(row.key, 'vat', Number(e.target.value))} /></TableCell>
-                    <TableCell align="right">${lineTotal(row).toFixed(2)}</TableCell>
+                    <TableCell align="right">NPR {lineTotal(row).toFixed(2)}</TableCell>
                     <TableCell align="right">
                       <IconButton size="small" disabled={lines.length === 1} onClick={() => setLines((prev) => prev.filter((l) => l.key !== row.key))}>
                         <DeleteOutlineRoundedIcon fontSize="small" />
@@ -211,7 +211,7 @@ export default function InvoiceForm() {
                 <Stack spacing={1}>
                   <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                     <Typography variant="body2">Subtotal</Typography>
-                    <Typography variant="body2">${subtotal.toFixed(2)}</Typography>
+                    <Typography variant="body2">NPR {subtotal.toFixed(2)}</Typography>
                   </Stack>
                   <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                     <Typography variant="body2">Discount</Typography>
@@ -219,7 +219,7 @@ export default function InvoiceForm() {
                   </Stack>
                   <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                     <Typography variant="body2">VAT</Typography>
-                    <Typography variant="body2">${vatTotal.toFixed(2)}</Typography>
+                    <Typography variant="body2">NPR {vatTotal.toFixed(2)}</Typography>
                   </Stack>
                   <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="body2">Shipping</Typography>
@@ -228,7 +228,7 @@ export default function InvoiceForm() {
                   <Divider />
                   <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                     <Typography variant="subtitle1">Grand Total</Typography>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>${grandTotal.toFixed(2)}</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>NPR {grandTotal.toFixed(2)}</Typography>
                   </Stack>
                 </Stack>
               </CardContent>

@@ -42,7 +42,7 @@ function RecentActivity() {
       items: purchaseOrders.slice(0, 5).map((po) => ({
         id: po.id,
         primary: `${po.poNumber} · ${po.vendorName}`,
-        secondary: `${po.date} · $${po.amount.toLocaleString()}`,
+        secondary: `${po.date} · NPR ${po.amount.toLocaleString()}`,
         status: po.status,
         path: `/procurement/purchase-orders/${po.id}`,
       })),

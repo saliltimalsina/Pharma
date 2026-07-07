@@ -78,7 +78,7 @@ export default function DebitNoteForm() {
                 <FormField fullWidth label="Supplier" value={selected?.vendorName ?? ''} disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth label="Outstanding Balance" value={`$${outstanding.toFixed(2)}`} disabled />
+                <FormField fullWidth label="Outstanding Balance" value={`NPR ${outstanding.toFixed(2)}`} disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormField fullWidth type="number" label="Debit Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />

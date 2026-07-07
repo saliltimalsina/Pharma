@@ -174,8 +174,8 @@ export default function VendorProfile() {
               <LabeledValue label="Payment Terms" value={vendor.paymentTerms} />
               <LabeledValue label="Currency" value={vendor.currency} />
               <LabeledValue label="Bank Account" value={vendor.bankAccount} />
-              <LabeledValue label="Credit Limit" value={`$${vendor.creditLimit.toLocaleString()}`} />
-              <LabeledValue label="Outstanding Balance" value={`$${vendor.outstandingBalance.toLocaleString()}`} />
+              <LabeledValue label="Credit Limit" value={`NPR ${vendor.creditLimit.toLocaleString()}`} />
+              <LabeledValue label="Outstanding Balance" value={`NPR ${vendor.outstandingBalance.toLocaleString()}`} />
             </Stack>
           </CardContent>
         </Card>
@@ -216,7 +216,7 @@ export default function VendorProfile() {
           <CardContent sx={{ pt: 0 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Total Orders" value={perf.totalOrders} /></Grid>
-              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Total Purchase" value={`$${perf.totalPurchase.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} /></Grid>
+              <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Total Purchase" value={`NPR ${perf.totalPurchase.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} /></Grid>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Matched Receipts" value={perf.matchedGrns} /></Grid>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="On-Time Delivery" value={perf.onTimePct === null ? '—' : `${perf.onTimePct}%`} /></Grid>
               <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Avg Lead Time" value={perf.avgLeadDays === null ? '—' : `${perf.avgLeadDays} days`} /></Grid>
@@ -249,7 +249,7 @@ export default function VendorProfile() {
               <TableCell sx={{ fontWeight: 500 }}>{po.poNumber}</TableCell>
               <TableCell>{po.date}</TableCell>
               <TableCell>{po.expectedDelivery}</TableCell>
-              <TableCell align="right">${po.amount.toLocaleString()}</TableCell>
+              <TableCell align="right">NPR {po.amount.toLocaleString()}</TableCell>
               <TableCell><StatusChip status={po.status} /></TableCell>
             </TableRow>
           ))}
