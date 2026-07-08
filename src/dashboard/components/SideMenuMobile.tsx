@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
@@ -8,6 +9,7 @@ import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
 import MenuButton from './MenuButton';
 import MenuContent from './MenuContent';
+import { useAuth } from '../../auth/AuthContext';
 
 interface SideMenuMobileProps {
   open: boolean | undefined;
@@ -15,6 +17,14 @@ interface SideMenuMobileProps {
 }
 
 export default function SideMenuMobile({ open, toggleDrawer }: SideMenuMobileProps) {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <Drawer
       anchor="right"
@@ -39,14 +49,11 @@ export default function SideMenuMobile({ open, toggleDrawer }: SideMenuMobilePro
             direction="row"
             sx={{ gap: 1, alignItems: 'center', flexGrow: 1, p: 1 }}
           >
-            <Avatar
-              sizes="small"
-              alt="Riley Carter"
-              src="/static/images/avatar/7.jpg"
-              sx={{ width: 24, height: 24 }}
-            />
+            <Avatar sizes="small" alt={user?.name} sx={{ width: 24, height: 24 }}>
+              {user?.name?.[0]}
+            </Avatar>
             <Typography component="p" variant="h6">
-              Riley Carter
+              {user?.name}
             </Typography>
           </Stack>
           <MenuButton showBadge>
@@ -59,7 +66,7 @@ export default function SideMenuMobile({ open, toggleDrawer }: SideMenuMobilePro
           <Divider />
         </Stack>
         <Stack sx={{ p: 2 }}>
-          <Button variant="outlined" fullWidth startIcon={<LogoutRoundedIcon />}>
+          <Button variant="outlined" fullWidth startIcon={<LogoutRoundedIcon />} onClick={handleLogout}>
             Logout
           </Button>
         </Stack>

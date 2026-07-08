@@ -11,6 +11,7 @@ import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import MenuContent from './MenuContent';
 import OptionsMenu from './OptionsMenu';
+import { useAuth } from '../../auth/AuthContext';
 
 const expandedWidth = 240;
 const collapsedWidth = 72;
@@ -32,6 +33,7 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'collap
 
 export default function SideMenu() {
   const [collapsed, setCollapsed] = React.useState(false);
+  const { user } = useAuth();
 
   return (
     <Drawer
@@ -130,20 +132,17 @@ export default function SideMenu() {
           borderColor: 'divider',
         }}
       >
-        <Avatar
-          sizes="small"
-          alt="Riley Carter"
-          src="/static/images/avatar/7.jpg"
-          sx={{ width: 36, height: 36 }}
-        />
+        <Avatar sizes="small" alt={user?.name} sx={{ width: 36, height: 36 }}>
+          {user?.name?.[0]}
+        </Avatar>
         {!collapsed && (
           <>
-            <Box sx={{ mr: 'auto' }}>
-              <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: '16px' }}>
-                Riley Carter
+            <Box sx={{ mr: 'auto', minWidth: 0 }}>
+              <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: '16px' }} noWrap>
+                {user?.name}
               </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                riley@email.com
+              <Typography variant="caption" sx={{ color: 'text.secondary' }} noWrap>
+                {user?.email}
               </Typography>
             </Box>
             <OptionsMenu />

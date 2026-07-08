@@ -1,4 +1,7 @@
+import type { ReactElement } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './auth/AuthContext';
+import Login from './auth/pages/Login';
 import { ProcurementProvider } from './procurement/store/ProcurementStore';
 import { InventoryProvider } from './inventory/store/InventoryStore';
 import { FinanceProvider } from './finance/store/FinanceStore';
@@ -60,14 +63,21 @@ import DebitNoteForm from './finance/pages/debit-notes/DebitNoteForm';
 import AdvancesList from './finance/pages/advances/AdvancesList';
 import VoucherView from './finance/pages/payments/VoucherView';
 
+function RequireAuth({ children }: { children: ReactElement }) {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
 function App() {
   return (
-    <ProcurementProvider>
-      <InventoryProvider>
-        <FinanceProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route element={<Dashboard />}>
+    <AuthProvider>
+      <ProcurementProvider>
+        <InventoryProvider>
+          <FinanceProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route element={<RequireAuth><Dashboard /></RequireAuth>}>
                 <Route index element={<ActionCenter />} />
                 <Route path="dashboard" element={<ActionCenter />} />
                 <Route path="procurement" element={<ProcurementDashboard />} />
@@ -146,12 +156,13 @@ function App() {
                 <Route path="finance/advances" element={<AdvancesList />} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
-        </FinanceProvider>
-      </InventoryProvider>
-    </ProcurementProvider>
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </FinanceProvider>
+        </InventoryProvider>
+      </ProcurementProvider>
+    </AuthProvider>
   );
 }
 
