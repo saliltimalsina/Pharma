@@ -300,7 +300,7 @@ export default function StockList() {
               helperText={reserveTarget ? `${reserveTarget.availableQty.toLocaleString()} available across batches` : ''}
             />
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              Reserved from the earliest-expiring batches first (FEFO/FIFO per item costing method).
+              We'll use the stock that expires soonest first, so nothing goes to waste.
             </Typography>
           </Stack>
         </DialogContent>

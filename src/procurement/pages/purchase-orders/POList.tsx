@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
 import MenuItem from '@mui/material/MenuItem';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { GridColDef } from '@mui/x-data-grid';
@@ -71,11 +72,24 @@ export default function POList() {
         title="Purchase Orders"
         subtitle="Official purchasing contracts issued to vendors"
         actions={
-          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/procurement/purchase-orders/new')}>
+          <Button variant="outlined" startIcon={<AddRoundedIcon />} onClick={() => navigate('/procurement/purchase-orders/new')}>
             Create Purchase Order
           </Button>
         }
       />
+
+      <Alert
+        severity="info"
+        sx={{ mb: 2 }}
+        action={
+          <Button color="inherit" size="small" variant="outlined" onClick={() => navigate('/procurement/guided-purchase')}>
+            Guided Purchase
+          </Button>
+        }
+      >
+        Most purchase orders come from awarding an RFQ. Only create one directly here if you already know the
+        vendor and price.
+      </Alert>
 
       <FilterBar>
         <FilterSelect value={vendor} onChange={(e) => setVendor(e.target.value)} sx={{ minWidth: 200 }}>

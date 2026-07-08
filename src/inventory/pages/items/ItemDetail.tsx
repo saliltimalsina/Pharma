@@ -32,6 +32,11 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
   );
 }
 
+const COSTING_METHOD_LABEL: Record<string, string> = {
+  FEFO: 'FEFO (First-Expired, First-Out)',
+  FIFO: 'FIFO (First-In, First-Out)',
+};
+
 export default function ItemDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -74,12 +79,12 @@ export default function ItemDetail() {
                 <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Category" value={item.category} /></Grid>
                 <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Brand" value={item.brand} /></Grid>
                 <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Manufacturer" value={item.manufacturer} /></Grid>
-                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="UOM" value={item.uom} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Unit of Measure" value={item.uom} /></Grid>
                 <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Stock Type" value={item.stockType} /></Grid>
                 <Grid size={{ xs: 12 }}><LabeledValue label="Description" value={item.description} /></Grid>
                 <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Storage Condition" value={item.storageCondition} /></Grid>
                 <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Shelf Life" value={item.expiryTracking ? `${item.shelfLifeMonths} months` : 'Not tracked'} /></Grid>
-                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Costing Method" value={item.costingMethod} /></Grid>
+                <Grid size={{ xs: 6, sm: 4 }}><LabeledValue label="Costing Method" value={COSTING_METHOD_LABEL[item.costingMethod] ?? item.costingMethod} /></Grid>
               </Grid>
             </CardContent>
           </Card>
@@ -102,7 +107,7 @@ export default function ItemDetail() {
 
           <Card variant="outlined">
             <CardContent>
-              <Typography variant="subtitle2" gutterBottom>{item.costingMethod} Pick Order</Typography>
+              <Typography variant="subtitle2" gutterBottom>Pick Order</Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 Next batch to be consumed appears first.
               </Typography>

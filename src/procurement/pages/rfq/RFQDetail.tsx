@@ -25,6 +25,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
+import PipelineTracker from '../../components/PipelineTracker';
 import { useProcurement } from '../../store/ProcurementStore';
 import type { Rfq, Vendor } from '../../data/types';
 
@@ -130,8 +131,9 @@ function QuotationsPanel({
 export default function RFQDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { rfqs, vendors, submitQuote, awardRfq } = useProcurement();
+  const { rfqs, vendors, purchaseOrders, submitQuote, awardRfq } = useProcurement();
   const rfq = rfqs.find((r) => r.id === id);
+  const linkedPo = rfq ? purchaseOrders.find((p) => p.rfqId === rfq.id) : undefined;
   const [activeTab, setActiveTab] = useState(0);
 
   if (!rfq) {
@@ -396,6 +398,7 @@ export default function RFQDetail() {
           <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement/rfqs')}>Back</Button>
         }
       />
+      <PipelineTracker current="rfq" requisitionId={rfq.requisitionId} rfqId={rfq.id} poId={linkedPo?.id} />
       <Box sx={{ mb: 2 }}>{nextStepBanner}</Box>
       <DetailTabs
         activeTab={activeTab}

@@ -19,6 +19,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
+import PipelineTracker from '../../components/PipelineTracker';
 import { useProcurement } from '../../store/ProcurementStore';
 import { useInventory } from '../../../inventory/store/InventoryStore';
 import type { StockInLine } from '../../../inventory/store/InventoryStore';
@@ -49,9 +50,12 @@ function resolveWarehouseId(label: string): string {
 export default function GRNDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { grns, purchaseOrders, acceptGrn } = useProcurement();
+  const { grns, purchaseOrders, rfqs, acceptGrn } = useProcurement();
   const { items: inventoryItems, batches, receiveStock } = useInventory();
   const grn = grns.find((g) => g.id === id);
+  const linkedPo = grn ? purchaseOrders.find((p) => p.poNumber === grn.poNumber) : undefined;
+  const linkedRfq = linkedPo?.rfqId ? rfqs.find((r) => r.id === linkedPo.rfqId) : undefined;
+  const linkedBatch = grn ? batches.find((b) => b.grnNumber === grn.grnNumber) : undefined;
 
   if (!grn) {
     return (
@@ -276,6 +280,14 @@ export default function GRNDetail() {
             )}
           </>
         }
+      />
+      <PipelineTracker
+        current="grn"
+        requisitionId={linkedRfq?.requisitionId}
+        rfqId={linkedRfq?.id}
+        poId={linkedPo?.id}
+        grnId={grn.id}
+        stockId={linkedBatch?.id}
       />
       {nextStepBanner && <Box sx={{ mb: 2 }}>{nextStepBanner}</Box>}
       <DetailTabs

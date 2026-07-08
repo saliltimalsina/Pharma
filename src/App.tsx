@@ -3,6 +3,7 @@ import { ProcurementProvider } from './procurement/store/ProcurementStore';
 import { InventoryProvider } from './inventory/store/InventoryStore';
 import { FinanceProvider } from './finance/store/FinanceStore';
 import Dashboard from './dashboard/Dashboard';
+import ActionCenter from './dashboard/pages/ActionCenter';
 import ProcurementDashboard from './procurement/pages/dashboard/ProcurementDashboard';
 import RequisitionList from './procurement/pages/requisitions/RequisitionList';
 import RequisitionForm from './procurement/pages/requisitions/RequisitionForm';
@@ -51,20 +52,13 @@ import BillDetail from './finance/pages/bills/BillDetail';
 import PaymentList from './finance/pages/payments/PaymentList';
 import PaymentForm from './finance/pages/payments/PaymentForm';
 import PaymentDetail from './finance/pages/payments/PaymentDetail';
-import AccountingHub from './finance/pages/accounting/AccountingHub';
-import JournalEntryForm from './finance/pages/accounting/JournalEntryForm';
-import BankingHub from './finance/pages/banking/BankingHub';
-import TaxesHub from './finance/pages/taxes/TaxesHub';
 import FinancialReports from './finance/pages/reports/FinancialReports';
 import CreditNoteList from './finance/pages/credit-notes/CreditNoteList';
 import CreditNoteForm from './finance/pages/credit-notes/CreditNoteForm';
 import DebitNoteList from './finance/pages/debit-notes/DebitNoteList';
 import DebitNoteForm from './finance/pages/debit-notes/DebitNoteForm';
 import AdvancesList from './finance/pages/advances/AdvancesList';
-import CashBook from './finance/pages/banking/CashBook';
 import VoucherView from './finance/pages/payments/VoucherView';
-import AnalyticsHub from './finance/pages/analytics/AnalyticsHub';
-import AuditReport from './finance/pages/reports/AuditReport';
 
 function App() {
   return (
@@ -74,8 +68,8 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route element={<Dashboard />}>
-                <Route index element={<ProcurementDashboard />} />
-                <Route path="dashboard" element={<ProcurementDashboard />} />
+                <Route index element={<ActionCenter />} />
+                <Route path="dashboard" element={<ActionCenter />} />
                 <Route path="procurement" element={<ProcurementDashboard />} />
                 <Route path="procurement/guided-purchase" element={<ProcurementWizard />} />
 
@@ -143,15 +137,7 @@ function App() {
                 <Route path="finance/payments/:id/voucher" element={<VoucherView />} />
                 <Route path="finance/payments/:id" element={<PaymentDetail />} />
 
-                <Route path="finance/accounting" element={<AccountingHub />} />
-                <Route path="finance/accounting/journal/new" element={<JournalEntryForm />} />
-
-                <Route path="finance/banking" element={<BankingHub />} />
-                <Route path="finance/cash-book" element={<CashBook />} />
-                <Route path="finance/taxes" element={<TaxesHub />} />
                 <Route path="finance/reports" element={<FinancialReports />} />
-                <Route path="finance/analytics" element={<AnalyticsHub />} />
-                <Route path="finance/audit" element={<AuditReport />} />
 
                 <Route path="finance/credit-notes" element={<CreditNoteList />} />
                 <Route path="finance/credit-notes/new" element={<CreditNoteForm />} />

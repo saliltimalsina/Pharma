@@ -72,6 +72,7 @@ export default function RFQForm() {
     const cleanItems: RequisitionItem[] = items.map(({ key: _key, ...rest }) => rest);
     const id = addRfq(
       {
+        requisitionId: fromReq ?? undefined,
         title,
         category,
         createdDate: today,

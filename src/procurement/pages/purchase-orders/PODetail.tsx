@@ -27,7 +27,9 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
+import PipelineTracker from '../../components/PipelineTracker';
 import { useProcurement } from '../../store/ProcurementStore';
+import { useInventory } from '../../../inventory/store/InventoryStore';
 import type { PoItem } from '../../data/types';
 
 function LabeledValue({ label, value }: { label: string; value?: string }) {
@@ -54,9 +56,13 @@ function daysBetween(from: string, to: string): number {
 export default function PODetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { purchaseOrders, grns, approvePurchaseOrder, sendPurchaseOrder, amendPurchaseOrder } =
+  const { purchaseOrders, rfqs, grns, approvePurchaseOrder, sendPurchaseOrder, amendPurchaseOrder } =
     useProcurement();
+  const { batches } = useInventory();
   const po = purchaseOrders.find((p) => p.id === id);
+  const linkedRfq = po?.rfqId ? rfqs.find((r) => r.id === po.rfqId) : undefined;
+  const linkedGrn = po ? grns.find((g) => g.poNumber === po.poNumber) : undefined;
+  const linkedBatch = po ? batches.find((b) => b.poNumber === po.poNumber) : undefined;
 
   const [amendOpen, setAmendOpen] = useState(false);
   const [draftItems, setDraftItems] = useState<PoItem[]>([]);
@@ -293,6 +299,14 @@ export default function PODetail() {
           </>
         }
       />
+      <PipelineTracker
+        current="po"
+        requisitionId={linkedRfq?.requisitionId}
+        rfqId={linkedRfq?.id}
+        poId={po.id}
+        grnId={linkedGrn?.id}
+        stockId={linkedBatch?.id}
+      />
       <DetailTabs
         tabs={[
           { label: 'Overview', content: overviewTab },
@@ -330,7 +344,7 @@ export default function PODetail() {
             </TableBody>
           </Table>
           <Stack direction="row" sx={{ justifyContent: 'flex-end', mt: 1 }}>
-            <Typography variant="subtitle2">New Amount: ${draftTotal.toFixed(2)}</Typography>
+            <Typography variant="subtitle2">New Amount: NPR {draftTotal.toFixed(2)}</Typography>
           </Stack>
           <TextField
             fullWidth

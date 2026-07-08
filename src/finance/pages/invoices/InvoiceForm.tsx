@@ -215,7 +215,7 @@ export default function InvoiceForm() {
                   </Stack>
                   <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                     <Typography variant="body2">Discount</Typography>
-                    <Typography variant="body2">-${discountTotal.toFixed(2)}</Typography>
+                    <Typography variant="body2">-NPR {discountTotal.toFixed(2)}</Typography>
                   </Stack>
                   <Stack direction="row" sx={{ justifyContent: 'space-between' }}>
                     <Typography variant="body2">VAT</Typography>
@@ -236,6 +236,9 @@ export default function InvoiceForm() {
           </Grid>
         </Grid>
 
+        <Typography variant="caption" sx={{ color: 'text.secondary', textAlign: 'right' }}>
+          Draft = save without sending &middot; Proforma = a quote, not a bill yet &middot; Send = the customer owes this now
+        </Typography>
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
           <Button variant="outlined" disabled={!canSubmit} onClick={() => save('Draft')}>Save as Draft</Button>
           <Button variant="outlined" disabled={!canSubmit} onClick={() => save('Proforma')}>Save as Proforma</Button>

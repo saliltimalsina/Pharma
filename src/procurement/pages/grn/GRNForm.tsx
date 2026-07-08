@@ -60,8 +60,16 @@ export default function GRNForm() {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  // Only POs actually awaiting delivery are valid receiving targets — defaulting to
+  // "whichever PO happens to be first" could silently attach a real delivery to a
+  // Draft/Completed/Cancelled order with no indication anything was wrong.
+  const receivablePOs = purchaseOrders.filter(
+    (p) => p.status === 'Sent' || p.status === 'Partially Received' || p.id === fromPo,
+  );
   const initialPoId =
-    fromPo && purchaseOrders.some((p) => p.id === fromPo) ? fromPo : purchaseOrders[0].id;
+    fromPo && purchaseOrders.some((p) => p.id === fromPo)
+      ? fromPo
+      : (receivablePOs[0] ?? purchaseOrders[0]).id;
 
   const [poId, setPoId] = useState(initialPoId);
   const po = purchaseOrders.find((p) => p.id === poId) ?? purchaseOrders[0];
@@ -155,7 +163,7 @@ export default function GRNForm() {
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormSelectField fullWidth size="small" label="Purchase Order" value={poId} onChange={(e) => handlePoChange(e.target.value)}>
-                  {purchaseOrders.map((p) => (
+                  {receivablePOs.map((p) => (
                     <MenuItem key={p.id} value={p.id}>{p.poNumber} — {p.vendorName}</MenuItem>
                   ))}
                 </FormSelectField>

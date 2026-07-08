@@ -111,6 +111,7 @@ export default function POForm() {
     const cleanItems: PoItem[] = items.map(({ key: _key, ...rest }) => rest);
     const id = addPurchaseOrder(
       {
+        rfqId: sourceRfq?.id,
         vendorId,
         vendorName,
         date: orderDate,

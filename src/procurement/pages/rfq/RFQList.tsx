@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
 import MenuItem from '@mui/material/MenuItem';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { GridColDef } from '@mui/x-data-grid';
@@ -59,11 +60,23 @@ export default function RFQList() {
         title="RFQs"
         subtitle="Request for quotation — compare suppliers before buying"
         actions={
-          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/procurement/rfqs/new')}>
+          <Button variant="outlined" startIcon={<AddRoundedIcon />} onClick={() => navigate('/procurement/rfqs/new')}>
             Create RFQ
           </Button>
         }
       />
+
+      <Alert
+        severity="info"
+        sx={{ mb: 2 }}
+        action={
+          <Button color="inherit" size="small" variant="outlined" onClick={() => navigate('/procurement/guided-purchase')}>
+            Guided Purchase
+          </Button>
+        }
+      >
+        Most purchases start with Guided Purchase — it creates the requisition and RFQ together in one go.
+      </Alert>
 
       <FilterBar>
         <FilterSelect value={status} onChange={(e) => setStatus(e.target.value)} sx={{ minWidth: 180 }}>

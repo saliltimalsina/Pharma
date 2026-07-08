@@ -100,6 +100,7 @@ export default function ProcurementWizard() {
 
     const rfqId = addRfq(
       {
+        requisitionId: reqId,
         title,
         category,
         createdDate: today,

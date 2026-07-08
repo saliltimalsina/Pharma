@@ -105,6 +105,7 @@ export interface RfqQuote {
 export interface Rfq {
   id: string;
   rfqNo: string;
+  requisitionId?: string;
   title: string;
   category: VendorCategory;
   createdDate: string;
@@ -137,6 +138,7 @@ export interface PoAmendment {
 export interface PurchaseOrder {
   id: string;
   poNumber: string;
+  rfqId?: string;
   vendorId: string;
   vendorName: string;
   date: string;

@@ -30,7 +30,9 @@ import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { ExpiryChip } from '../../components/expiryUtils';
 import { MovementChip, SignedQty } from '../../components/movementUtils';
+import PipelineTracker from '../../../procurement/components/PipelineTracker';
 import { useInventory } from '../../store/InventoryStore';
+import { useProcurement } from '../../../procurement/store/ProcurementStore';
 import { itemById, warehouseById } from '../../data/mockData';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
@@ -46,7 +48,11 @@ export default function StockDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { batches, movements, updateBatchBin, recallBatch, disposeBatch, releaseBatch } = useInventory();
+  const { purchaseOrders, grns, rfqs } = useProcurement();
   const batch = batches.find((b) => b.id === (id ?? ''));
+  const linkedPo = batch ? purchaseOrders.find((p) => p.poNumber === batch.poNumber) : undefined;
+  const linkedGrn = batch ? grns.find((g) => g.grnNumber === batch.grnNumber) : undefined;
+  const linkedRfq = linkedPo?.rfqId ? rfqs.find((r) => r.id === linkedPo.rfqId) : undefined;
   const [binDraft, setBinDraft] = useState(batch?.bin ?? '');
   const [confirmAction, setConfirmAction] = useState<null | 'recall' | 'dispose' | 'release'>(null);
 
@@ -275,6 +281,14 @@ export default function StockDetail() {
             )}
           </>
         }
+      />
+      <PipelineTracker
+        current="stock"
+        requisitionId={linkedRfq?.requisitionId}
+        rfqId={linkedRfq?.id}
+        poId={linkedPo?.id}
+        grnId={linkedGrn?.id}
+        stockId={batch.id}
       />
       <Box sx={{ mb: 2 }}>{nextStepBanner}</Box>
       <DetailTabs
