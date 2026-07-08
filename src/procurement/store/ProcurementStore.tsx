@@ -58,7 +58,7 @@ interface ProcurementContextValue {
   approvePurchaseOrder: (id: string) => void;
   sendPurchaseOrder: (id: string) => void;
   amendPurchaseOrder: (id: string, updatedItems: PoItem[], note: string) => void;
-  addGrn: (input: NewGrnInput, complete: boolean) => string;
+  addGrn: (input: NewGrnInput, complete: boolean) => Grn;
   acceptGrn: (id: string) => void;
 }
 
@@ -330,7 +330,7 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     setGrns((prev) => [grn, ...prev]);
     if (complete) applyGrnToPo(grn);
     logEvent(complete ? 'Received' : 'Created', 'GRN', grnNumber, input.receivedBy);
-    return id;
+    return grn;
   };
 
   const acceptGrn: ProcurementContextValue['acceptGrn'] = (id) => {

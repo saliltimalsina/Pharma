@@ -94,7 +94,7 @@ export default function GRNForm() {
       check,
       result: checks[check] === 'fail' ? 'fail' : 'pass',
     }));
-    const grnId = addGrn(
+    const grn = addGrn(
       {
         poNumber: po.poNumber,
         vendorName: po.vendorName,
@@ -125,14 +125,14 @@ export default function GRNForm() {
           expiryDate: line.expiryDate,
           supplierName: po.vendorName,
           poNumber: po.poNumber,
-          grnNumber: grnId,
+          grnNumber: grn.grnNumber,
           qcStatus: 'Under Inspection',
         });
       }
       if (stockLines.length) receiveStock(stockLines);
     }
 
-    navigate('/procurement/grn/' + grnId);
+    navigate('/procurement/grn/' + grn.id);
   };
 
   return (
