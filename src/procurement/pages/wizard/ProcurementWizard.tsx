@@ -29,6 +29,7 @@ import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useProcurement } from '../../store/ProcurementStore';
 import { departments } from '../../data/mockData';
+import { items as catalogItems } from '../../../inventory/data/mockData';
 import type { Priority, RequisitionItem, VendorCategory } from '../../data/types';
 
 const priorities: Priority[] = ['Low', 'Medium', 'High', 'Urgent'];
@@ -76,7 +77,7 @@ export default function ProcurementWizard() {
     setSelectedVendors((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
 
   // Validation gates — Next/Send RFQ stays disabled until the step's minimum viable info is filled.
-  const step0Valid = department !== '' && requester.trim() !== '' && purpose.trim() !== '' && items.some((it) => it.item.trim() !== '');
+  const step0Valid = department !== '' && requester.trim() !== '' && purpose.trim() !== '' && requiredDate !== '' && items.some((it) => it.item.trim() !== '');
   const step1Valid = title.trim() !== '' && closingDate !== '' && selectedVendors.length > 0;
   const stepValid = [step0Valid, step1Valid][activeStep];
 
@@ -136,7 +137,7 @@ export default function ProcurementWizard() {
               </FormSelectField>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <FormField fullWidth size="small" type="date" label="Required Date" value={requiredDate} onChange={(e) => setRequiredDate(e.target.value)} />
+              <FormField fullWidth size="small" required type="date" label="Required Date" value={requiredDate} onChange={(e) => setRequiredDate(e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12, sm: 8 }}>
               <FormField fullWidth size="small" required label="Purpose" placeholder="e.g. Batch B-2207 production" value={purpose} onChange={(e) => setPurpose(e.target.value)} />
@@ -163,7 +164,6 @@ export default function ProcurementWizard() {
                 <TableCell>Description</TableCell>
                 <TableCell width={100}>Qty</TableCell>
                 <TableCell width={90}>Unit</TableCell>
-                <TableCell width={150}>Required Date</TableCell>
                 <TableCell width={50} />
               </TableRow>
             </TableHead>
@@ -171,7 +171,21 @@ export default function ProcurementWizard() {
               {items.map((row) => (
                 <TableRow key={row.key}>
                   <TableCell>
-                    <TextField variant="standard" placeholder="Lactose Monohydrate" value={row.item} onChange={(e) => updateItem(row.key, 'item', e.target.value)} fullWidth />
+                    <TextField
+                      variant="standard"
+                      select
+                      value={row.item}
+                      onChange={(e) => updateItem(row.key, 'item', e.target.value)}
+                      fullWidth
+                      slotProps={{ select: { displayEmpty: true } }}
+                    >
+                      <MenuItem value="" disabled>
+                        Select item
+                      </MenuItem>
+                      {catalogItems.map((ci) => (
+                        <MenuItem key={ci.id} value={ci.name}>{ci.name}</MenuItem>
+                      ))}
+                    </TextField>
                   </TableCell>
                   <TableCell>
                     <TextField variant="standard" placeholder="Grade / spec" value={row.description} onChange={(e) => updateItem(row.key, 'description', e.target.value)} fullWidth />
@@ -181,9 +195,6 @@ export default function ProcurementWizard() {
                   </TableCell>
                   <TableCell>
                     <TextField variant="standard" value={row.unit} onChange={(e) => updateItem(row.key, 'unit', e.target.value)} fullWidth />
-                  </TableCell>
-                  <TableCell>
-                    <TextField variant="standard" type="date" value={row.requiredDate} onChange={(e) => updateItem(row.key, 'requiredDate', e.target.value)} fullWidth />
                   </TableCell>
                   <TableCell align="right">
                     <IconButton size="small" disabled={items.length === 1} onClick={() => setItems((prev) => prev.filter((it) => it.key !== row.key))}>
