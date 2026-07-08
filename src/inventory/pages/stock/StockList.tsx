@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
@@ -69,11 +69,12 @@ function RowActions({ stockId, itemId, onReserve }: { stockId: string; itemId: s
 
 export default function StockList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { stockEntries, batches, reserveStock } = useInventory();
   const [warehouse, setWarehouse] = useState('All');
   const [category, setCategory] = useState('All');
   const [stockType, setStockType] = useState('All');
-  const [stockLevel, setStockLevel] = useState('All');
+  const [stockLevel, setStockLevel] = useState(searchParams.get('level') ?? 'All');
   const [reserveTarget, setReserveTarget] = useState<ReserveTarget | null>(null);
   const [reserveQty, setReserveQty] = useState(0);
 
@@ -83,7 +84,16 @@ export default function StockList() {
         .map((s) => {
           const item = itemById(s.itemId);
           const total = s.availableQty + s.reservedQty;
-          const level = s.availableQty === 0 ? 'Out of Stock' : s.availableQty <= (item?.reorderLevel ?? 0) ? 'Low Stock' : 'In Stock';
+          // Zero available qty means genuinely out of stock UNLESS it's just awaiting QC
+          // release — that's a different, temporary state and shouldn't look identical.
+          const level =
+            s.pendingInspectionQty > 0
+              ? 'Under Inspection'
+              : s.availableQty === 0
+                ? 'Out of Stock'
+                : s.availableQty <= (item?.reorderLevel ?? 0)
+                  ? 'Low Stock'
+                  : 'In Stock';
           return {
             id: s.id,
             itemId: s.itemId,
@@ -248,6 +258,7 @@ export default function StockList() {
           <MenuItem value="In Stock">In Stock</MenuItem>
           <MenuItem value="Low Stock">Low Stock</MenuItem>
           <MenuItem value="Out of Stock">Out of Stock</MenuItem>
+          <MenuItem value="Under Inspection">Under Inspection</MenuItem>
         </FilterSelect>
       </FilterBar>
 

@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
@@ -49,7 +50,7 @@ export default function GRNDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { grns, purchaseOrders, acceptGrn } = useProcurement();
-  const { items: inventoryItems, receiveStock } = useInventory();
+  const { items: inventoryItems, batches, receiveStock } = useInventory();
   const grn = grns.find((g) => g.id === id);
 
   if (!grn) {
@@ -67,6 +68,35 @@ export default function GRNDetail() {
     ? daysBetween(matchedPo.expectedDelivery, grn.receivedDate)
     : null;
   const onTime = deliveryDelta !== null && deliveryDelta <= 0;
+
+  // Cross-module bridge: goods received here don't become usable stock until someone
+  // releases the batch in Inventory — surface that as the always-visible next step.
+  const pendingBatches = batches.filter((b) => b.grnNumber === grn.grnNumber && b.qcStatus === 'Under Inspection');
+  const nextStepBanner =
+    grn.status === 'Completed' && pendingBatches.length > 0 ? (
+      <Alert
+        severity="info"
+        action={
+          <Button
+            color="inherit"
+            size="small"
+            variant="outlined"
+            onClick={() =>
+              navigate(
+                pendingBatches.length === 1
+                  ? `/inventory/stock/${pendingBatches[0].id}`
+                  : '/inventory/stock?level=Under Inspection',
+              )
+            }
+          >
+            {pendingBatches.length === 1 ? 'Release Batch' : 'View Pending Batches'}
+          </Button>
+        }
+      >
+        Goods received — {pendingBatches.length} batch{pendingBatches.length === 1 ? '' : 'es'} pending QC release
+        in Inventory before they're usable stock.
+      </Alert>
+    ) : null;
 
   // Complete a draft/pending GRN: advance status + roll accepted qty onto the PO,
   // and cascade accepted goods into inventory stock (same mapping as GRNForm).
@@ -247,6 +277,7 @@ export default function GRNDetail() {
           </>
         }
       />
+      {nextStepBanner && <Box sx={{ mb: 2 }}>{nextStepBanner}</Box>}
       <DetailTabs
         tabs={[
           { label: 'Overview', content: overviewTab },

@@ -26,6 +26,7 @@ import EventBusyRoundedIcon from '@mui/icons-material/EventBusyRounded';
 import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded';
 import SyncAltRoundedIcon from '@mui/icons-material/SyncAltRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import PendingActionsRoundedIcon from '@mui/icons-material/PendingActionsRounded';
 import PageHeader from '../../components/PageHeader';
 import KpiCard from '../../components/KpiCard';
 import StatusChip from '../../components/StatusChip';
@@ -45,11 +46,12 @@ function RecentActivity() {
   const [tab, setTab] = React.useState(0);
   const navigate = useNavigate();
   const { batches, transfers, adjustments } = useInventory();
+  const recentBatches = [...batches].reverse();
 
   const panels = [
     {
       label: 'Latest Stock Received',
-      items: batches.slice(0, 5).map((b) => ({
+      items: recentBatches.slice(0, 5).map((b) => ({
         id: b.id,
         primary: `${itemById(b.itemId)?.name} · ${b.batchNumber}`,
         secondary: `${b.grnNumber} · ${b.receivedQty.toLocaleString()} received`,
@@ -91,8 +93,7 @@ function RecentActivity() {
     },
     {
       label: 'Latest Batch Created',
-      items: [...batches]
-        .sort((a, b) => (a.manufacturingDate < b.manufacturingDate ? 1 : -1))
+      items: recentBatches
         .slice(0, 5)
         .map((b) => ({
           id: b.id,
@@ -153,6 +154,10 @@ export default function InventoryDashboard() {
   const onHandOf = (itemId: string) =>
     batches.filter((b) => b.itemId === itemId).reduce((sum, b) => sum + b.availableQty, 0);
 
+  // Goods received from GRN but not yet signed off by QC — sit invisible in the
+  // grid otherwise; surfaced here so nothing gets missed after a receipt.
+  const pendingReleaseCount = batches.filter((b) => b.qcStatus === 'Under Inspection').length;
+
   const belowSafetyCount = items.filter((it) => {
     const oh = onHandOf(it.id);
     return oh > 0 && oh <= it.safetyStock;
@@ -190,6 +195,14 @@ export default function InventoryDashboard() {
   }, 0);
 
   const kpis = [
+    {
+      title: 'Pending Release',
+      value: `${pendingReleaseCount}`,
+      icon: <PendingActionsRoundedIcon />,
+      color: 'info' as const,
+      helper: 'Received, awaiting QC release',
+      onClick: () => navigate('/inventory/stock?level=Under Inspection'),
+    },
     { title: 'Total Inventory Value', value: `NPR ${Math.round(totalValue).toLocaleString()}`, icon: <Inventory2RoundedIcon />, color: 'success' as const },
     { title: 'Total Products', value: `${items.length}`, icon: <Category2RoundedIcon />, color: 'primary' as const, helper: `${items.filter((i) => i.status === 'Active').length} active` },
     { title: 'Low Stock Items', value: `${lowStockCount}`, icon: <WarningAmberRoundedIcon />, color: 'warning' as const, helper: 'Below reorder level' },

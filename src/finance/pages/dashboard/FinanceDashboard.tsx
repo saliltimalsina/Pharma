@@ -16,7 +16,7 @@ import Divider from '@mui/material/Divider';
 import PaidRoundedIcon from '@mui/icons-material/PaidRounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import RequestQuoteRoundedIcon from '@mui/icons-material/RequestQuoteRounded';
-import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded';
+import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
@@ -32,14 +32,14 @@ const quickActions = [
   { label: 'Create Invoice', icon: <ReceiptLongRoundedIcon />, path: '/finance/invoices/new' },
   { label: 'Record Supplier Bill', icon: <RequestQuoteRoundedIcon />, path: '/finance/bills/new' },
   { label: 'Record Payment', icon: <PaidRoundedIcon />, path: '/finance/payments/new' },
-  { label: 'Journal Entry', icon: <AccountBalanceRoundedIcon />, path: '/finance/accounting/journal/new' },
-  { label: 'Bank Reconciliation', icon: <AccountBalanceWalletRoundedIcon />, path: '/finance/banking' },
+  { label: 'Issue Credit Note', icon: <UndoRoundedIcon />, path: '/finance/credit-notes/new' },
+  { label: 'Issue Debit Note', icon: <UndoRoundedIcon />, path: '/finance/debit-notes/new' },
 ];
 
 function RecentActivity() {
   const [tab, setTab] = React.useState(0);
   const navigate = useNavigate();
-  const { invoices, supplierBills, payments, journalEntries } = useFinance();
+  const { invoices, supplierBills, payments, creditNotes, debitNotes } = useFinance();
 
   const panels = [
     {
@@ -73,13 +73,23 @@ function RecentActivity() {
       })),
     },
     {
-      label: 'Recent Journal Entries',
-      items: journalEntries.slice(0, 5).map((j) => ({
-        id: j.id,
-        primary: `${j.journalNo} · ${j.description}`,
-        secondary: `${j.date} · NPR ${j.amount.toLocaleString()}`,
-        status: j.status,
-        path: `/finance/accounting`,
+      label: 'Recent Credit Notes',
+      items: creditNotes.slice(0, 5).map((c) => ({
+        id: c.id,
+        primary: `${c.creditNoteNo} · ${customerById(c.customerId)?.name}`,
+        secondary: `${c.date} · NPR ${c.amount.toLocaleString()}`,
+        status: c.status,
+        path: `/finance/credit-notes`,
+      })),
+    },
+    {
+      label: 'Recent Debit Notes',
+      items: debitNotes.slice(0, 5).map((d) => ({
+        id: d.id,
+        primary: `${d.debitNoteNo} · ${d.vendorName}`,
+        secondary: `${d.date} · NPR ${d.amount.toLocaleString()}`,
+        status: d.status,
+        path: `/finance/debit-notes`,
       })),
     },
   ];
@@ -92,6 +102,9 @@ function RecentActivity() {
         ))}
       </Tabs>
       <List dense disablePadding>
+        {panels[tab].items.length === 0 && (
+          <ListItem><ListItemText primary="Nothing here right now" /></ListItem>
+        )}
         {panels[tab].items.map((item, i) => (
           <React.Fragment key={item.id}>
             <ListItem

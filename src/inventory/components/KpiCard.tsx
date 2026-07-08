@@ -13,6 +13,7 @@ export interface KpiCardProps {
   helper?: string;
   delta?: { label: string; trend: 'up' | 'down' | 'flat' };
   color?: 'primary' | 'warning' | 'error' | 'success' | 'info';
+  onClick?: () => void;
 }
 
 export default function KpiCard({
@@ -22,12 +23,20 @@ export default function KpiCard({
   helper,
   delta,
   color = 'primary',
+  onClick,
 }: KpiCardProps) {
   const deltaColor =
     delta?.trend === 'up' ? 'success' : delta?.trend === 'down' ? 'error' : 'default';
 
   return (
-    <Card variant="outlined" sx={{ height: '100%' }}>
+    <Card
+      variant="outlined"
+      onClick={onClick}
+      sx={{
+        height: '100%',
+        ...(onClick && { cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }),
+      }}
+    >
       <CardContent>
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Stack sx={{ gap: 0.5 }}>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import Alert from '@mui/material/Alert';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
@@ -60,12 +61,48 @@ export default function StockDetail() {
 
   const item = itemById(batch.itemId);
   const warehouse = warehouseById(batch.warehouseId);
-  const level = batch.availableQty === 0 ? 'Out of Stock' : batch.availableQty <= (item?.reorderLevel ?? 0) ? 'Low Stock' : 'In Stock';
   const passed = batch.inspectionResult.toLowerCase().startsWith('pass');
   const pendingQty = batch.receivedQty - batch.availableQty - batch.reservedQty;
   // Recall / dispose act on live stock; a batch already recalled or expired is terminal.
   const canModify = batch.qcStatus !== 'Recalled' && batch.qcStatus !== 'Expired';
   const canRelease = canModify && batch.qcStatus !== 'Released' && batch.qcStatus !== 'Available' && pendingQty > 0;
+  // The available/low/out chip only means something once stock is actually usable —
+  // while under inspection (or written off) it would just duplicate/contradict the QC chip.
+  const level =
+    batch.qcStatus === 'Released' || batch.qcStatus === 'Available'
+      ? batch.availableQty === 0
+        ? 'Out of Stock'
+        : batch.availableQty <= (item?.reorderLevel ?? 0)
+          ? 'Low Stock'
+          : 'In Stock'
+      : null;
+
+  // Always-visible "what's next" banner, same pattern as RFQ/PO detail pages.
+  const nextStepBanner = canRelease ? (
+    <Alert
+      severity="info"
+      action={
+        <Button color="inherit" size="small" variant="outlined" onClick={() => setConfirmAction('release')}>
+          Release to Stock
+        </Button>
+      }
+    >
+      {pendingQty.toLocaleString()} unit(s) received but not usable yet — pending QC release. Check the Inspection
+      tab, then release when ready.
+    </Alert>
+  ) : batch.qcStatus === 'Recalled' ? (
+    <Alert severity="warning">
+      This batch has been recalled — its stock was pulled from circulation and it can no longer be used.
+    </Alert>
+  ) : batch.qcStatus === 'Expired' ? (
+    <Alert severity="error">
+      This batch is expired / disposed — its stock was written off and it can no longer be used.
+    </Alert>
+  ) : (
+    <Alert severity="success">
+      Released — {batch.availableQty.toLocaleString()} unit(s) available for reservation, issue, or transfer.
+    </Alert>
+  );
 
   // Real movement history for this batch at this warehouse, newest first.
   const batchMovements = movements
@@ -131,7 +168,7 @@ export default function StockDetail() {
           <CardContent>
             <Typography variant="subtitle2" gutterBottom>Inventory</Typography>
             <Stack direction="row" sx={{ gap: 1, mb: 2, flexWrap: 'wrap' }}>
-              <StatusChip status={level} />
+              {level && <StatusChip status={level} />}
               <StatusChip status={batch.qcStatus} />
               <ExpiryChip dateStr={batch.expiryDate} />
             </Stack>
@@ -239,6 +276,7 @@ export default function StockDetail() {
           </>
         }
       />
+      <Box sx={{ mb: 2 }}>{nextStepBanner}</Box>
       <DetailTabs
         tabs={[
           { label: 'Overview', content: overviewTab },
