@@ -15,8 +15,8 @@ import {
   customers as mockCustomers,
 } from '../data/mockData';
 import { fetchCustomers } from './customerApi';
-import { fetchInvoices, createInvoice, convertProformaApi, type CreateInvoiceInput } from './invoiceApi';
-import { fetchBills, createBill, approveBillApi } from './billApi';
+import { fetchInvoices, createInvoice, convertProformaApi, cancelInvoiceApi, type CreateInvoiceInput } from './invoiceApi';
+import { fetchBills, createBill, approveBillApi, cancelBillApi } from './billApi';
 import { fetchPayments, createPayment, type CreatePaymentInput } from './paymentApi';
 import { fetchCreditNotes, createCreditNote } from './creditNoteApi';
 import { fetchDebitNotes, createDebitNote } from './debitNoteApi';
@@ -78,8 +78,10 @@ interface FinanceContextValue {
   financeEvents: FinanceEvent[];
   addInvoice: (input: NewInvoiceInput, status: NewInvoiceStatus) => Promise<string>;
   convertProforma: (id: string) => Promise<void>;
+  cancelInvoice: (id: string) => Promise<void>;
   addBill: (input: NewBillInput) => Promise<string>;
   approveBill: (id: string) => Promise<void>;
+  cancelBill: (id: string) => Promise<void>;
   addPayment: (input: NewPaymentInput) => Promise<string>;
   addJournalEntry: (input: NewJournalInput) => string;
   addCreditNote: (input: NewCreditNoteInput) => Promise<string>;
@@ -203,6 +205,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     logEvent('Converted', 'Invoice', updated.invoiceNo);
   };
 
+  const cancelInvoice: FinanceContextValue['cancelInvoice'] = async (id) => {
+    const updated = await cancelInvoiceApi(id);
+    setInvoices((prev) => prev.map((i) => (i.id === id ? updated : i)));
+    logEvent('Cancelled', 'Invoice', updated.invoiceNo);
+  };
+
   const addBill: FinanceContextValue['addBill'] = async (input) => {
     const bill = await createBill({
       vendorId: Number(input.vendorId),
@@ -227,6 +235,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     const updated = await approveBillApi(id);
     setSupplierBills((prev) => prev.map((b) => (b.id === id ? updated : b)));
     logEvent('Approved', 'Bill', updated.billNo);
+  };
+
+  const cancelBill: FinanceContextValue['cancelBill'] = async (id) => {
+    const updated = await cancelBillApi(id);
+    setSupplierBills((prev) => prev.map((b) => (b.id === id ? updated : b)));
+    logEvent('Cancelled', 'Bill', updated.billNo);
   };
 
   const PAYMENT_TYPE_VALUE: Record<PaymentType, CreatePaymentInput['type']> = {
@@ -494,8 +508,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         financeEvents,
         addInvoice,
         convertProforma,
+        cancelInvoice,
         addBill,
         approveBill,
+        cancelBill,
         addPayment,
         addJournalEntry,
         addCreditNote,

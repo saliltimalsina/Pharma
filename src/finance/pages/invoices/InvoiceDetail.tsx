@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -11,13 +12,20 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Alert from '@mui/material/Alert';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
+import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useFinance } from '../../store/FinanceStore';
 import { customerById, invoiceBalance } from '../../data/mockData';
+import { ApiError } from '../../../shared/api/client';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -37,8 +45,12 @@ function lineTotal(line: { quantity: number; unitPrice: number; discount: number
 export default function InvoiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { invoices, payments, creditNotes, convertProforma } = useFinance();
+  const { invoices, payments, creditNotes, convertProforma, cancelInvoice } = useFinance();
   const invoice = invoices.find((i) => i.id === id);
+
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   if (!invoice) {
     return (
@@ -55,6 +67,20 @@ export default function InvoiceDetail() {
   const relatedPayments = payments.filter((p) => p.invoiceOrBillRef === invoice.invoiceNo);
   const relatedCreditNotes = creditNotes.filter((n) => n.invoiceNo === invoice.invoiceNo);
   const canSettle = balance > 0 && !['Draft', 'Proforma', 'Cancelled'].includes(invoice.status);
+  const canCancel = ['Draft', 'Proforma', 'Sent'].includes(invoice.status);
+
+  const confirmCancel = async () => {
+    setCancelling(true);
+    setCancelError('');
+    try {
+      await cancelInvoice(invoice.id);
+      setCancelOpen(false);
+    } catch (e) {
+      setCancelError(e instanceof ApiError ? e.message : 'Could not cancel the invoice.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -226,9 +252,17 @@ export default function InvoiceDetail() {
                 <Button variant="contained" onClick={() => navigate(`/finance/payments/new?invoice=${invoice.invoiceNo}`)}>Record Payment</Button>
               </>
             )}
+            {canCancel && (
+              <Button color="error" startIcon={<CancelRoundedIcon />} onClick={() => setCancelOpen(true)}>Cancel Invoice</Button>
+            )}
           </>
         }
       />
+      {cancelError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setCancelError('')}>
+          {cancelError}
+        </Alert>
+      )}
       <DetailTabs
         tabs={[
           { label: 'Overview', content: overviewTab },
@@ -237,6 +271,21 @@ export default function InvoiceDetail() {
           { label: 'Credit Notes', content: creditNotesTab },
         ]}
       />
+
+      <Dialog open={cancelOpen} onClose={() => setCancelOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Cancel Invoice</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Cancel {invoice.invoiceNo}? This cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelOpen(false)}>Back</Button>
+          <Button variant="contained" color="error" loading={cancelling} disabled={cancelling} onClick={confirmCancel}>
+            Cancel Invoice
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

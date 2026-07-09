@@ -134,3 +134,8 @@ export async function awardRfqApi(rfqId: string, vendorId: number): Promise<Rfq>
   const data = await api.post<ApiRfq>(`/rfqs/${rfqId}/award`, { vendorId });
   return mapRfq(data);
 }
+
+export async function inviteRfqVendorsApi(rfqId: string, additionalVendorIds: number[]): Promise<Rfq> {
+  const data = await api.put<ApiRfq>(`/rfqs/${rfqId}`, { additionalVendorIds });
+  return mapRfq(data);
+}

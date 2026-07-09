@@ -15,13 +15,14 @@ import {
   rejectRequisitionApi,
   type CreateRequisitionInput,
 } from './requisitionApi';
-import { fetchRfqs, createRfq, submitRfqQuote, awardRfqApi } from './rfqApi';
+import { fetchRfqs, createRfq, submitRfqQuote, awardRfqApi, inviteRfqVendorsApi } from './rfqApi';
 import {
   fetchPurchaseOrders,
   createPurchaseOrder,
   approvePurchaseOrderApi,
   sendPurchaseOrderApi,
   amendPurchaseOrderApi,
+  cancelPurchaseOrderApi,
 } from './poApi';
 import { fetchGrns, createGrn, completeGrnApi, type GrnItemInput } from './grnApi';
 import type {
@@ -83,10 +84,12 @@ interface ProcurementContextValue {
   addRfq: (input: NewRfqInput, send: boolean) => Promise<string>;
   submitQuote: (rfqId: string, quote: QuoteInput) => Promise<void>;
   awardRfq: (id: string, vendorId: string) => Promise<void>;
+  inviteRfqVendors: (rfqId: string, vendorIds: string[]) => Promise<void>;
   addPurchaseOrder: (input: NewPoInput, submit: boolean) => Promise<string>;
   approvePurchaseOrder: (id: string) => Promise<void>;
   sendPurchaseOrder: (id: string) => Promise<void>;
   amendPurchaseOrder: (id: string, updatedItems: PoItem[], note: string) => Promise<void>;
+  cancelPurchaseOrder: (id: string) => Promise<void>;
   addGrn: (input: NewGrnInput, complete: boolean) => Promise<Grn>;
   acceptGrn: (id: string) => Promise<void>;
 }
@@ -329,6 +332,12 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     logEvent('Awarded', 'RFQ', `${updated.rfqNo} → ${vendorName}`, SYSTEM_ACTOR);
   };
 
+  const inviteRfqVendors: ProcurementContextValue['inviteRfqVendors'] = async (rfqId, vendorIds) => {
+    const updated = await inviteRfqVendorsApi(rfqId, vendorIds.map(Number));
+    setRfqs((prev) => prev.map((r) => (r.id === rfqId ? updated : r)));
+    logEvent('Vendors Invited', 'RFQ', updated.rfqNo, SYSTEM_ACTOR);
+  };
+
   const addPurchaseOrder: ProcurementContextValue['addPurchaseOrder'] = async (input, submit) => {
     const departmentIds = await loadDepartmentIds();
     const po = await createPurchaseOrder({
@@ -387,6 +396,12 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     );
     setPurchaseOrders((prev) => prev.map((p) => (p.id === id ? updated : p)));
     logEvent('Amended', 'Purchase Order', updated.poNumber, updated.createdBy);
+  };
+
+  const cancelPurchaseOrder: ProcurementContextValue['cancelPurchaseOrder'] = async (id) => {
+    const updated = await cancelPurchaseOrderApi(id);
+    setPurchaseOrders((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    logEvent('Cancelled', 'Purchase Order', updated.poNumber, SYSTEM_ACTOR);
   };
 
   // Refetch POs so a just-completed GRN's roll-up (receivedQty / Partially
@@ -453,10 +468,12 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
         addRfq,
         submitQuote,
         awardRfq,
+        inviteRfqVendors,
         addPurchaseOrder,
         approvePurchaseOrder,
         sendPurchaseOrder,
         amendPurchaseOrder,
+        cancelPurchaseOrder,
         addGrn,
         acceptGrn,
       }}

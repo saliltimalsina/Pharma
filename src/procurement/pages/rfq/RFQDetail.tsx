@@ -19,15 +19,22 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemAvatar from '@mui/material/ListItemAvatar';
+import Checkbox from '@mui/material/Checkbox';
 import Alert from '@mui/material/Alert';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import PipelineTracker from '../../components/PipelineTracker';
 import { useProcurement } from '../../store/ProcurementStore';
 import { useInventory } from '../../../inventory/store/InventoryStore';
+import { ApiError } from '../../../shared/api/client';
 import type { Rfq, Vendor } from '../../data/types';
 
 const TAB_INDEX = { overview: 0, items: 1, invited: 2, quotations: 3, comparison: 4, award: 5 };
@@ -132,11 +139,16 @@ function QuotationsPanel({
 export default function RFQDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { rfqs, vendors, purchaseOrders, submitQuote, awardRfq } = useProcurement();
+  const { rfqs, vendors, purchaseOrders, submitQuote, awardRfq, inviteRfqVendors } = useProcurement();
   const { items: catalogItems } = useInventory();
   const rfq = rfqs.find((r) => r.id === id);
   const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
   const linkedPo = rfq ? purchaseOrders.find((p) => p.rfqId === rfq.id) : undefined;
+
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [selectedNewVendors, setSelectedNewVendors] = useState<string[]>([]);
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
 
   if (!rfq) {
@@ -209,6 +221,26 @@ export default function RFQDetail() {
     });
   };
 
+  const uninvitedVendors = vendors.filter((v) => !rfq.invitedVendors.includes(v.id));
+
+  const toggleNewVendor = (vendorId: string) => {
+    setSelectedNewVendors((prev) => (prev.includes(vendorId) ? prev.filter((v) => v !== vendorId) : [...prev, vendorId]));
+  };
+
+  const confirmInvite = async () => {
+    setInviting(true);
+    setInviteError('');
+    try {
+      await inviteRfqVendors(rfq.id, selectedNewVendors);
+      setSelectedNewVendors([]);
+      setInviteOpen(false);
+    } catch (e) {
+      setInviteError(e instanceof ApiError ? e.message : 'Could not invite the selected vendors.');
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const overviewTab = (
     <Grid container spacing={2}>
       <Grid size={{ xs: 12, md: 8 }}>
@@ -268,8 +300,23 @@ export default function RFQDetail() {
     </Card>
   );
 
+  const canInviteVendors = ['Draft', 'Sent', 'Receiving Quotes'].includes(rfq.status);
+
   const invitedTab = (
     <Card variant="outlined">
+      {canInviteVendors && (
+        <Stack direction="row" sx={{ justifyContent: 'flex-end', p: 1.5, pb: 0 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<PersonAddRoundedIcon />}
+            disabled={uninvitedVendors.length === 0}
+            onClick={() => setInviteOpen(true)}
+          >
+            Invite Vendor
+          </Button>
+        </Stack>
+      )}
       <List>
         {rfq.invitedVendors.length === 0 && (
           <ListItem><ListItemText primary="No vendors invited yet" /></ListItem>
@@ -415,6 +462,45 @@ export default function RFQDetail() {
           { label: 'Award History', content: awardTab },
         ]}
       />
+
+      <Dialog open={inviteOpen} onClose={() => setInviteOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Invite Vendors — {rfq.rfqNo}</DialogTitle>
+        <DialogContent dividers>
+          {inviteError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setInviteError('')}>
+              {inviteError}
+            </Alert>
+          )}
+          <List dense disablePadding>
+            {uninvitedVendors.map((v) => (
+              <ListItem key={v.id} disablePadding>
+                <Stack
+                  direction="row"
+                  sx={{ alignItems: 'center', gap: 1, width: '100%', cursor: 'pointer' }}
+                  onClick={() => toggleNewVendor(v.id)}
+                >
+                  <Checkbox checked={selectedNewVendors.includes(v.id)} size="small" />
+                  <ListItemText primary={v.name} secondary={v.category} />
+                </Stack>
+              </ListItem>
+            ))}
+            {uninvitedVendors.length === 0 && (
+              <ListItem><ListItemText primary="Every vendor is already invited" /></ListItem>
+            )}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setInviteOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={selectedNewVendors.length === 0 || inviting}
+            loading={inviting}
+            onClick={confirmInvite}
+          >
+            Invite {selectedNewVendors.length > 0 ? selectedNewVendors.length : ''} Vendor{selectedNewVendors.length === 1 ? '' : 's'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

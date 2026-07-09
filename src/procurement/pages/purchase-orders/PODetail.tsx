@@ -22,14 +22,17 @@ import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import LinearProgress from '@mui/material/LinearProgress';
+import Alert from '@mui/material/Alert';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import PipelineTracker from '../../components/PipelineTracker';
 import { useProcurement } from '../../store/ProcurementStore';
 import { useInventory } from '../../../inventory/store/InventoryStore';
+import { ApiError } from '../../../shared/api/client';
 import type { PoItem } from '../../data/types';
 
 function LabeledValue({ label, value }: { label: string; value?: string }) {
@@ -56,7 +59,7 @@ function daysBetween(from: string, to: string): number {
 export default function PODetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { purchaseOrders, rfqs, grns, approvePurchaseOrder, sendPurchaseOrder, amendPurchaseOrder } =
+  const { purchaseOrders, rfqs, grns, approvePurchaseOrder, sendPurchaseOrder, amendPurchaseOrder, cancelPurchaseOrder } =
     useProcurement();
   const { batches, items: catalogItems } = useInventory();
   const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
@@ -68,6 +71,9 @@ export default function PODetail() {
   const [amendOpen, setAmendOpen] = useState(false);
   const [draftItems, setDraftItems] = useState<PoItem[]>([]);
   const [amendNote, setAmendNote] = useState('');
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   if (!po) {
     return (
@@ -79,7 +85,21 @@ export default function PODetail() {
   }
 
   const canAmend = po.status === 'Draft' || po.status === 'Pending Approval';
+  const canCancel = ['Draft', 'Pending Approval', 'Approved', 'Sent'].includes(po.status);
   const poGrns = grns.filter((g) => g.poNumber === po.poNumber);
+
+  const confirmCancel = async () => {
+    setCancelling(true);
+    setCancelError('');
+    try {
+      await cancelPurchaseOrder(po.id);
+      setCancelOpen(false);
+    } catch (e) {
+      setCancelError(e instanceof ApiError ? e.message : 'Could not cancel the purchase order.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const openAmend = () => {
     setDraftItems(po.items.map((it) => ({ ...it })));
@@ -308,9 +328,17 @@ export default function PODetail() {
             {(po.status === 'Sent' || po.status === 'Partially Received') && (
               <Button variant="contained" onClick={() => navigate(`/procurement/grn/new?fromPo=${po.id}`)}>Receive Goods</Button>
             )}
+            {canCancel && (
+              <Button color="error" startIcon={<CancelRoundedIcon />} onClick={() => setCancelOpen(true)}>Cancel PO</Button>
+            )}
           </>
         }
       />
+      {cancelError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setCancelError('')}>
+          {cancelError}
+        </Alert>
+      )}
       <PipelineTracker
         current="po"
         requisitionId={linkedRfq?.requisitionId}
@@ -371,6 +399,21 @@ export default function PODetail() {
         <DialogActions>
           <Button onClick={() => setAmendOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={saveAmend}>Save Amendment</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={cancelOpen} onClose={() => setCancelOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Cancel Purchase Order</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Cancel {po.poNumber}? This cannot be undone, and the vendor will need a new order if this was sent in error.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelOpen(false)}>Back</Button>
+          <Button variant="contained" color="error" loading={cancelling} disabled={cancelling} onClick={confirmCancel}>
+            Cancel PO
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

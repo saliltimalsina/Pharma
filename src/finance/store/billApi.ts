@@ -105,3 +105,8 @@ export async function approveBillApi(id: string): Promise<SupplierBill> {
   const data = await api.post<ApiSupplierBill>(`/supplier-bills/${id}/approve`);
   return mapBill(data);
 }
+
+export async function cancelBillApi(id: string): Promise<SupplierBill> {
+  const data = await api.post<ApiSupplierBill>(`/supplier-bills/${id}/cancel`);
+  return mapBill(data);
+}

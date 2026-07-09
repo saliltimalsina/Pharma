@@ -193,6 +193,8 @@ export type ProcurementEventType =
   | 'Sent'
   | 'Received'
   | 'Quote Submitted'
+  | 'Vendors Invited'
+  | 'Cancelled'
   | 'Document Added'
   | 'Document Removed';
 

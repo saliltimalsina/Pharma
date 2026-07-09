@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -12,14 +13,21 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Alert from '@mui/material/Alert';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
+import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useFinance } from '../../store/FinanceStore';
 import { billBalance } from '../../data/mockData';
+import { ApiError } from '../../../shared/api/client';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -33,8 +41,12 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
 export default function BillDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { supplierBills, approveBill, payments, debitNotes } = useFinance();
+  const { supplierBills, approveBill, cancelBill, payments, debitNotes } = useFinance();
   const bill = supplierBills.find((b) => b.id === id);
+
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   if (!bill) {
     return (
@@ -50,6 +62,20 @@ export default function BillDetail() {
   const relatedPayments = payments.filter((p) => p.invoiceOrBillRef === bill.billNo);
   const relatedDebitNotes = debitNotes.filter((n) => n.billNo === bill.billNo);
   const canSettle = balance > 0 && ['Approved', 'Partially Paid'].includes(bill.status);
+  const canCancel = ['Draft', 'Pending Verification', 'Approved'].includes(bill.status);
+
+  const confirmCancel = async () => {
+    setCancelling(true);
+    setCancelError('');
+    try {
+      await cancelBill(bill.id);
+      setCancelOpen(false);
+    } catch (e) {
+      setCancelError(e instanceof ApiError ? e.message : 'Could not cancel the bill.');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -221,9 +247,17 @@ export default function BillDetail() {
                 <Button variant="contained" onClick={() => navigate(`/finance/payments/new?bill=${bill.billNo}`)}>Pay Bill</Button>
               </>
             )}
+            {canCancel && (
+              <Button color="error" startIcon={<CancelRoundedIcon />} onClick={() => setCancelOpen(true)}>Cancel Bill</Button>
+            )}
           </>
         }
       />
+      {cancelError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setCancelError('')}>
+          {cancelError}
+        </Alert>
+      )}
       <DetailTabs
         tabs={[
           { label: 'Overview', content: overviewTab },
@@ -232,6 +266,21 @@ export default function BillDetail() {
           { label: 'Debit Notes', content: debitNotesTab },
         ]}
       />
+
+      <Dialog open={cancelOpen} onClose={() => setCancelOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Cancel Supplier Bill</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Cancel {bill.billNo}? This cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelOpen(false)}>Back</Button>
+          <Button variant="contained" color="error" loading={cancelling} disabled={cancelling} onClick={confirmCancel}>
+            Cancel Bill
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

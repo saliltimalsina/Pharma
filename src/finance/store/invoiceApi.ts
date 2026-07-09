@@ -114,3 +114,8 @@ export async function convertProformaApi(id: string): Promise<Invoice> {
   const data = await api.post<ApiInvoice>(`/invoices/${id}/convert-proforma`);
   return mapInvoice(data);
 }
+
+export async function cancelInvoiceApi(id: string): Promise<Invoice> {
+  const data = await api.post<ApiInvoice>(`/invoices/${id}/cancel`);
+  return mapInvoice(data);
+}

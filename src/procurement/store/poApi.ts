@@ -149,3 +149,8 @@ export async function amendPurchaseOrderApi(
   const data = await api.post<ApiPurchaseOrder>(`/purchase-orders/${id}/amend`, { note, items });
   return mapPo(data);
 }
+
+export async function cancelPurchaseOrderApi(id: string): Promise<PurchaseOrder> {
+  const data = await api.post<ApiPurchaseOrder>(`/purchase-orders/${id}/cancel`);
+  return mapPo(data);
+}
