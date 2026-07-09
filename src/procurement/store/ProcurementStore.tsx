@@ -6,7 +6,7 @@ import {
   purchaseOrders as seedPurchaseOrders,
   grns as seedGrns,
 } from '../data/mockData';
-import { fetchVendors, fetchVendorCategories, fetchBusinessTypes, createVendor } from './vendorApi';
+import { fetchVendors, fetchVendorCategories, fetchBusinessTypes, createVendor, updateVendorStatus } from './vendorApi';
 import {
   fetchRequisitions,
   fetchDepartments,
@@ -77,6 +77,7 @@ interface ProcurementContextValue {
   rejectRequisition: (id: string, approver: string, reason: string) => Promise<void>;
   completeRequisition: (id: string) => void;
   addVendor: (input: NewVendorInput) => Promise<string>;
+  setVendorStatus: (vendorId: string, status: Vendor['status']) => Promise<void>;
   addVendorDoc: (vendorId: string, doc: VendorDoc) => void;
   removeVendorDoc: (vendorId: string, index: number) => void;
   addRfq: (input: NewRfqInput, send: boolean) => Promise<string>;
@@ -261,6 +262,12 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     return vendor.id;
   };
 
+  const setVendorStatus: ProcurementContextValue['setVendorStatus'] = async (vendorId, status) => {
+    const updated = await updateVendorStatus(vendorId, status);
+    setVendors((prev) => prev.map((v) => (v.id === vendorId ? updated : v)));
+    logEvent(status === 'Active' ? 'Approved' : status === 'Blacklisted' ? 'Rejected' : 'Submitted', 'Vendor', updated.name, SYSTEM_ACTOR);
+  };
+
   const addVendorDoc: ProcurementContextValue['addVendorDoc'] = (vendorId, doc) => {
     const vendor = vendors.find((v) => v.id === vendorId);
     setVendors((prev) =>
@@ -440,6 +447,7 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
         rejectRequisition,
         completeRequisition,
         addVendor,
+        setVendorStatus,
         addVendorDoc,
         removeVendorDoc,
         addRfq,

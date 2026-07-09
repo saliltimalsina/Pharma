@@ -21,6 +21,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
+import Alert from '@mui/material/Alert';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
@@ -119,8 +120,10 @@ function DocumentsPanel({ vendor }: { vendor: Vendor }) {
 export default function VendorProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { vendors, purchaseOrders, rfqs, grns } = useProcurement();
+  const { vendors, purchaseOrders, rfqs, grns, setVendorStatus } = useProcurement();
   const vendor = vendors.find((v) => v.id === id);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState('');
 
   if (!vendor) {
     return (
@@ -130,6 +133,18 @@ export default function VendorProfile() {
       </Box>
     );
   }
+
+  const changeStatus = async (status: Vendor['status']) => {
+    setUpdatingStatus(true);
+    setStatusError('');
+    try {
+      await setVendorStatus(vendor.id, status);
+    } catch {
+      setStatusError('Could not update the vendor status.');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
 
   const vendorPOs = purchaseOrders.filter((p) => p.vendorId === vendor.id);
   const vendorRFQs = rfqs.filter((r) => r.invitedVendors.includes(vendor.id));
@@ -294,11 +309,38 @@ export default function VendorProfile() {
         title={vendor.name}
         subtitle={`${vendor.vendorCode} · ${vendor.category} · ${vendor.country}`}
         actions={
-          <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement/vendors')}>
-            Back
-          </Button>
+          <>
+            <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement/vendors')}>
+              Back
+            </Button>
+            {vendor.status === 'Pending Approval' && (
+              <Button variant="contained" color="success" disabled={updatingStatus} loading={updatingStatus} onClick={() => changeStatus('Active')}>
+                Approve
+              </Button>
+            )}
+            {vendor.status === 'Active' && (
+              <>
+                <Button variant="outlined" color="warning" disabled={updatingStatus} onClick={() => changeStatus('On Hold')}>Put On Hold</Button>
+                <Button variant="outlined" color="error" disabled={updatingStatus} onClick={() => changeStatus('Blacklisted')}>Blacklist</Button>
+              </>
+            )}
+            {vendor.status === 'On Hold' && (
+              <>
+                <Button variant="contained" color="success" disabled={updatingStatus} loading={updatingStatus} onClick={() => changeStatus('Active')}>Reactivate</Button>
+                <Button variant="outlined" color="error" disabled={updatingStatus} onClick={() => changeStatus('Blacklisted')}>Blacklist</Button>
+              </>
+            )}
+            {vendor.status === 'Blacklisted' && (
+              <Button variant="outlined" color="success" disabled={updatingStatus} loading={updatingStatus} onClick={() => changeStatus('Active')}>Reactivate</Button>
+            )}
+          </>
         }
       />
+      {statusError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setStatusError('')}>
+          {statusError}
+        </Alert>
+      )}
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
           <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 2, alignItems: { sm: 'center' } }}>

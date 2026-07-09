@@ -97,3 +97,17 @@ export async function createVendor(input: CreateVendorInput): Promise<Vendor> {
   const data = await api.post<ApiVendor>('/vendors', input);
   return mapVendor(data);
 }
+
+const STATUS_VALUE: Record<Vendor['status'], ApiVendor['status']> = {
+  Active: 'active',
+  'On Hold': 'on_hold',
+  Blacklisted: 'blacklisted',
+  'Pending Approval': 'pending_approval',
+};
+
+// No dedicated approve/reject endpoint - vendor standing is just a field on
+// the standard update route.
+export async function updateVendorStatus(id: string, status: Vendor['status']): Promise<Vendor> {
+  const data = await api.put<ApiVendor>(`/vendors/${id}`, { status: STATUS_VALUE[status] });
+  return mapVendor(data);
+}
