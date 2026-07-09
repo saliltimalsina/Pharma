@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import { GridColDef } from '@mui/x-data-grid';
 import PageHeader from '../../components/PageHeader';
@@ -41,13 +42,23 @@ const columns: GridColDef[] = [
 
 export default function PaymentList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { payments } = useFinance();
   const [type, setType] = useState('All');
+  const [party, setParty] = useState('All');
+  const [search, setSearch] = useState(() => searchParams.get('search') ?? '');
+
+  const parties = useMemo(
+    () => Array.from(new Set(payments.map((p) => p.partyName))).sort(),
+    [payments],
+  );
 
   const rows = useMemo(
     () =>
       payments
         .filter((p) => type === 'All' || p.type === type)
+        .filter((p) => party === 'All' || p.partyName === party)
+        .filter((p) => search === '' || p.paymentNo.toLowerCase().includes(search.toLowerCase()))
         .map((p) => ({
           id: p.id,
           paymentNo: p.paymentNo,
@@ -59,7 +70,7 @@ export default function PaymentList() {
           status: p.status,
           date: p.date,
         })),
-    [payments, type],
+    [payments, type, party, search],
   );
 
   return (
@@ -75,6 +86,19 @@ export default function PaymentList() {
       />
 
       <FilterBar>
+        <TextField
+          size="small"
+          placeholder="Search payment no."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ minWidth: 200 }}
+        />
+        <FilterSelect value={party} onChange={(e) => setParty(e.target.value)} sx={{ minWidth: 200 }}>
+          <MenuItem value="All">All Customers / Suppliers</MenuItem>
+          {parties.map((p) => (
+            <MenuItem key={p} value={p}>{p}</MenuItem>
+          ))}
+        </FilterSelect>
         <FilterSelect value={type} onChange={(e) => setType(e.target.value)} sx={{ minWidth: 200 }}>
           <MenuItem value="All">All Payment Types</MenuItem>
           {types.map((t) => (

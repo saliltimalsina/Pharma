@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Stack from '@mui/material/Stack';
+import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
@@ -36,8 +38,18 @@ const columns: GridColDef[] = [
   {
     field: 'status',
     headerName: 'Status',
-    minWidth: 120,
-    renderCell: (params) => <StatusChip status={params.value} />,
+    flex: 1.1,
+    minWidth: 200,
+    renderCell: (params) => {
+      const row = params.row as { currentStock: number; reorderLevel: number };
+      const lowStock = row.currentStock <= row.reorderLevel;
+      return (
+        <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap', alignItems: 'center', height: '100%' }}>
+          <StatusChip status={params.value} />
+          {lowStock && <Chip size="small" color="warning" label="Low Stock" />}
+        </Stack>
+      );
+    },
   },
 ];
 
@@ -71,6 +83,7 @@ export default function ItemList() {
             brand: it.brand,
             uom: it.uom,
             currentStock,
+            reorderLevel: it.reorderLevel,
             warehouse: wh?.name ?? '—',
             warehouseId: primaryWarehouseId ?? '',
             status: it.status,

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -13,6 +14,10 @@ import TableRow from '@mui/material/TableRow';
 import Stepper from '@mui/material/Stepper';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
@@ -36,6 +41,7 @@ export default function TransferDetail() {
   const navigate = useNavigate();
   const { transfers, approveTransfer, completeTransfer, cancelTransfer } = useInventory();
   const transfer = transfers.find((t) => t.id === id);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   if (!transfer) {
     return (
@@ -132,7 +138,7 @@ export default function TransferDetail() {
             <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/transfers')}>Back</Button>
             {canAct && (
               <>
-                <Button variant="outlined" color="error" onClick={() => cancelTransfer(transfer.id)}>Cancel Transfer</Button>
+                <Button variant="outlined" color="error" onClick={() => setConfirmCancel(true)}>Cancel Transfer</Button>
                 <Button variant="contained" onClick={() => approveTransfer(transfer.id)}>
                   {transfer.status === 'Pending Approval' ? 'Approve' : 'Mark In Transit'}
                 </Button>
@@ -153,6 +159,28 @@ export default function TransferDetail() {
           { label: 'Tracking', content: trackingTab },
         ]}
       />
+
+      <Dialog open={confirmCancel} onClose={() => setConfirmCancel(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Cancel Transfer</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Cancel transfer {transfer.transferNumber}? This cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmCancel(false)}>Back</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              cancelTransfer(transfer.id);
+              setConfirmCancel(false);
+            }}
+          >
+            Cancel Transfer
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

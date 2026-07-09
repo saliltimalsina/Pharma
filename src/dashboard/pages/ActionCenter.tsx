@@ -24,10 +24,13 @@ import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import AddShoppingCartRoundedIcon from '@mui/icons-material/AddShoppingCartRounded';
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import PostAddRoundedIcon from '@mui/icons-material/PostAddRounded';
+import EventBusyRoundedIcon from '@mui/icons-material/EventBusyRounded';
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import PageHeader from '../../procurement/components/PageHeader';
 import { useProcurement } from '../../procurement/store/ProcurementStore';
 import { useInventory } from '../../inventory/store/InventoryStore';
 import { useFinance } from '../../finance/store/FinanceStore';
+import { daysUntil } from '../../inventory/components/expiryUtils';
 
 interface ActionItem {
   module: 'Procurement' | 'Inventory' | 'Finance';
@@ -45,7 +48,7 @@ interface ActionItem {
 export default function ActionCenter() {
   const navigate = useNavigate();
   const { requisitions, purchaseOrders, grns } = useProcurement();
-  const { batches } = useInventory();
+  const { batches, items: inventoryItems } = useInventory();
   const { invoices, supplierBills } = useFinance();
 
   const pendingRequisitions = requisitions.filter((r) => ['Submitted', 'Pending Approval'].includes(r.status)).length;
@@ -54,6 +57,16 @@ export default function ActionCenter() {
   const pendingRelease = batches.filter((b) => b.qcStatus === 'Under Inspection').length;
   const overdueInvoices = invoices.filter((i) => i.status === 'Overdue').length;
   const billsDue = supplierBills.filter((b) => ['Pending Verification', 'Approved', 'Partially Paid'].includes(b.status)).length;
+  // Same "expiring within 30 days" window as ExpiryMonitoring's KPI tile: 0 <= days <= 30.
+  const expiringBatches = batches.filter((b) => {
+    const d = daysUntil(b.expiryDate);
+    return d >= 0 && d <= 30;
+  }).length;
+  // Same "low stock" definition as StockAlerts: on hand > 0 but at/below reorder level.
+  const belowReorderLevel = inventoryItems.filter((it) => {
+    const onHand = batches.filter((b) => b.itemId === it.id).reduce((s, b) => s + b.availableQty, 0);
+    return onHand > 0 && onHand <= it.reorderLevel;
+  }).length;
 
   const items: ActionItem[] = [
     {
@@ -79,6 +92,18 @@ export default function ActionCenter() {
       label: 'Batches pending QC release', count: pendingRelease,
       helper: 'Received stock that isn’t usable yet',
       path: '/inventory/stock?level=Under Inspection',
+    },
+    {
+      module: 'Inventory', moduleColor: 'success.main', icon: <EventBusyRoundedIcon />,
+      label: 'Batches expiring within 30 days', count: expiringBatches,
+      helper: 'Nearing expiry — plan clearance, transfer or rotation',
+      path: '/inventory/expiry',
+    },
+    {
+      module: 'Inventory', moduleColor: 'success.main', icon: <WarningAmberRoundedIcon />,
+      label: 'Items below reorder level', count: belowReorderLevel,
+      helper: 'On hand has dropped to or below the reorder threshold',
+      path: '/inventory/alerts',
     },
     {
       module: 'Finance', moduleColor: 'warning.main', icon: <ReceiptLongRoundedIcon />,

@@ -3,10 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Grid from '@mui/material/Grid';
+import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded';
 import EventBusyRoundedIcon from '@mui/icons-material/EventBusyRounded';
@@ -19,8 +24,9 @@ import { useInventory } from '../../store/InventoryStore';
 import { itemById, warehouseById } from '../../data/mockData';
 import { exportToCsv } from '../../../shared/exportCsv';
 
-function RowActions({ batchId }: { batchId: string }) {
+function RowActions({ batchId, batchNumber }: { batchId: string; batchNumber: string }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [confirmAction, setConfirmAction] = useState<null | 'recall' | 'dispose'>(null);
   const navigate = useNavigate();
   const { recallBatch, disposeBatch } = useInventory();
   return (
@@ -30,9 +36,34 @@ function RowActions({ batchId }: { batchId: string }) {
       </IconButton>
       <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
         <MenuItem onClick={() => { navigate('/inventory/transfers/new'); setAnchor(null); }}>Transfer</MenuItem>
-        <MenuItem onClick={() => { recallBatch(batchId); setAnchor(null); }}>Recall</MenuItem>
-        <MenuItem onClick={() => { disposeBatch(batchId); setAnchor(null); }}>Dispose</MenuItem>
+        <MenuItem onClick={() => { setConfirmAction('recall'); setAnchor(null); }}>Recall</MenuItem>
+        <MenuItem onClick={() => { setConfirmAction('dispose'); setAnchor(null); }}>Dispose</MenuItem>
       </Menu>
+
+      <Dialog open={confirmAction !== null} onClose={() => setConfirmAction(null)} fullWidth maxWidth="xs">
+        <DialogTitle>{confirmAction === 'recall' ? 'Recall Batch' : 'Dispose Batch'}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {confirmAction === 'recall'
+              ? `Recall batch ${batchNumber}? Its available and reserved stock is pulled from circulation into damaged and the batch is flagged Recalled.`
+              : `Dispose batch ${batchNumber}? Its available and reserved stock is written off into damaged and the batch is marked Expired.`}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmAction(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color={confirmAction === 'recall' ? 'warning' : 'error'}
+            onClick={() => {
+              if (confirmAction === 'recall') recallBatch(batchId);
+              else if (confirmAction === 'dispose') disposeBatch(batchId);
+              setConfirmAction(null);
+            }}
+          >
+            {confirmAction === 'recall' ? 'Recall' : 'Dispose'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
@@ -63,7 +94,7 @@ const columns: GridColDef[] = [
     width: 60,
     sortable: false,
     filterable: false,
-    renderCell: (params) => <RowActions batchId={params.id as string} />,
+    renderCell: (params) => <RowActions batchId={params.id as string} batchNumber={params.row.batchNumber} />,
   },
 ];
 

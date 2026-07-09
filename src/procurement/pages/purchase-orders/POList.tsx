@@ -5,8 +5,10 @@ import Card from '@mui/material/Card';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import MenuItem from '@mui/material/MenuItem';
+import Typography from '@mui/material/Typography';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import { GridColDef } from '@mui/x-data-grid';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import { GridColDef, GridRowSelectionModel } from '@mui/x-data-grid';
 import PageHeader from '../../components/PageHeader';
 import FilterBar from '../../components/FilterBar';
 import FilterSelect from '../../components/FilterSelect';
@@ -42,10 +44,16 @@ const columns: GridColDef[] = [
 
 export default function POList() {
   const navigate = useNavigate();
-  const { vendors, purchaseOrders } = useProcurement();
+  const { vendors, purchaseOrders, approvePurchaseOrder } = useProcurement();
   const [vendor, setVendor] = useState('All');
   const [status, setStatus] = useState('All');
   const [department, setDepartment] = useState('All');
+  const [selectionModel, setSelectionModel] = useState<GridRowSelectionModel>({
+    type: 'include',
+    ids: new Set(),
+  });
+  const [approving, setApproving] = useState(false);
+  const [approveError, setApproveError] = useState('');
 
   const rows = useMemo(
     () =>
@@ -65,6 +73,36 @@ export default function POList() {
         })),
     [purchaseOrders, vendor, status, department],
   );
+
+  // Only POs awaiting approval are eligible for the bulk action; the grid's
+  // isRowSelectable keeps other rows from ever entering the selection model, but
+  // we also filter here defensively when resolving the model to an id list.
+  const eligibleIds = useMemo(
+    () => rows.filter((r) => r.status === 'Pending Approval').map((r) => r.id),
+    [rows],
+  );
+  const selectedIds = useMemo(
+    () =>
+      selectionModel.type === 'include'
+        ? eligibleIds.filter((id) => selectionModel.ids.has(id))
+        : eligibleIds.filter((id) => !selectionModel.ids.has(id)),
+    [selectionModel, eligibleIds],
+  );
+
+  const handleBulkApprove = async () => {
+    setApproving(true);
+    setApproveError('');
+    try {
+      for (const id of selectedIds) {
+        await approvePurchaseOrder(id);
+      }
+      setSelectionModel({ type: 'include', ids: new Set() });
+    } catch {
+      setApproveError('Failed to approve one or more purchase orders. Please try again.');
+    } finally {
+      setApproving(false);
+    }
+  };
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
@@ -112,10 +150,42 @@ export default function POList() {
         </FilterSelect>
       </FilterBar>
 
+      {approveError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setApproveError('')}>
+          {approveError}
+        </Alert>
+      )}
+
+      {selectedIds.length > 0 && (
+        <Card
+          variant="outlined"
+          sx={{ mb: 2, p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {selectedIds.length} purchase order{selectedIds.length === 1 ? '' : 's'} selected
+          </Typography>
+          <Button
+            variant="contained"
+            color="success"
+            size="small"
+            startIcon={<CheckRoundedIcon />}
+            loading={approving}
+            disabled={approving}
+            onClick={handleBulkApprove}
+          >
+            Approve {selectedIds.length} selected
+          </Button>
+        </Card>
+      )}
+
       <Card variant="outlined" sx={{ height: 560 }}>
         <ProcurementDataGrid
           rows={rows}
           columns={columns}
+          checkboxSelection
+          isRowSelectable={(params) => params.row.status === 'Pending Approval'}
+          rowSelectionModel={selectionModel}
+          onRowSelectionModelChange={setSelectionModel}
           onRowClick={(params) => navigate(`/procurement/purchase-orders/${params.id}`)}
           sx={{ cursor: 'pointer' }}
         />

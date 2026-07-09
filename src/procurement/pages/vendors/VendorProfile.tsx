@@ -22,6 +22,10 @@ import ListItemText from '@mui/material/ListItemText';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
@@ -124,6 +128,7 @@ export default function VendorProfile() {
   const vendor = vendors.find((v) => v.id === id);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState('');
+  const [confirmBlacklist, setConfirmBlacklist] = useState(false);
 
   if (!vendor) {
     return (
@@ -339,13 +344,13 @@ export default function VendorProfile() {
             {vendor.status === 'Active' && (
               <>
                 <Button variant="outlined" color="warning" disabled={updatingStatus} onClick={() => changeStatus('On Hold')}>Put On Hold</Button>
-                <Button variant="outlined" color="error" disabled={updatingStatus} onClick={() => changeStatus('Blacklisted')}>Blacklist</Button>
+                <Button variant="outlined" color="error" disabled={updatingStatus} onClick={() => setConfirmBlacklist(true)}>Blacklist</Button>
               </>
             )}
             {vendor.status === 'On Hold' && (
               <>
                 <Button variant="contained" color="success" disabled={updatingStatus} loading={updatingStatus} onClick={() => changeStatus('Active')}>Reactivate</Button>
-                <Button variant="outlined" color="error" disabled={updatingStatus} onClick={() => changeStatus('Blacklisted')}>Blacklist</Button>
+                <Button variant="outlined" color="error" disabled={updatingStatus} onClick={() => setConfirmBlacklist(true)}>Blacklist</Button>
               </>
             )}
             {vendor.status === 'Blacklisted' && (
@@ -392,6 +397,30 @@ export default function VendorProfile() {
           { label: 'Documents', content: documentsTab },
         ]}
       />
+
+      <Dialog open={confirmBlacklist} onClose={() => setConfirmBlacklist(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Blacklist Vendor</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Blacklist {vendor.name}? This vendor will no longer be eligible for new RFQs or purchase orders until it is
+            reactivated.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmBlacklist(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={updatingStatus}
+            onClick={() => {
+              setConfirmBlacklist(false);
+              changeStatus('Blacklisted');
+            }}
+          >
+            Blacklist
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
