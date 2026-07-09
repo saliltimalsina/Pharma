@@ -5,11 +5,13 @@ import {
   adjustments as seedAdjustments,
   batches as seedBatches,
   movements as seedMovements,
+  warehouses,
   deriveBin,
   itemById,
 } from '../data/mockData';
 import { orderBatchesByCosting } from '../data/costing';
 import { fetchItems, createItem } from './itemApi';
+import { fetchWarehouses } from './warehouseApi';
 import type {
   Item,
   Transfer,
@@ -145,6 +147,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     fetchItems()
       .then(setItems)
       .catch((e) => console.error('Failed to load items', e));
+    // `warehouses` has no create route anywhere in the app (pure reference
+    // data) - mutated in place here rather than lifted into context, so the
+    // ~20 pages that already do `import { warehouses } from '../data/mockData'`
+    // keep working unchanged and see the real rows once this resolves.
+    fetchWarehouses()
+      .then((rows) => warehouses.splice(0, warehouses.length, ...rows))
+      .catch((e) => console.error('Failed to load warehouses', e));
   }, []);
 
   const logMovements = (recs: StockMovement[]) => {
