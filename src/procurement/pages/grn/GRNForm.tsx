@@ -103,7 +103,13 @@ export default function GRNForm() {
   const [submitted, setSubmitted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const canSubmit = poId !== '' && warehouseId !== '' && receivedDate !== '' && lines.every((l) => l.batchNumber.trim() !== '');
+  const unaccounted = (l: GrnItem) => l.receivedQty - l.acceptedQty - l.rejectedQty;
+
+  const canSubmit =
+    poId !== '' &&
+    warehouseId !== '' &&
+    receivedDate !== '' &&
+    lines.every((l) => l.batchNumber.trim() !== '' && unaccounted(l) === 0);
 
   const save = async (complete: boolean) => {
     setSubmitted(true);
@@ -234,34 +240,46 @@ export default function GRNForm() {
                   <TableCell align="right">Received Qty</TableCell>
                   <TableCell align="right">Accepted Qty</TableCell>
                   <TableCell align="right">Rejected Qty</TableCell>
+                  <TableCell align="right">Unaccounted</TableCell>
                   <TableCell>Batch Number <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell>Expiry Date</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {lines.map((line, i) => (
-                  <TableRow key={i}>
-                    <TableCell sx={{ fontWeight: 500 }}>{materialName(line.product)}</TableCell>
-                    <TableCell align="right">{line.orderedQty} {po.items[i]?.unit}</TableCell>
-                    <TableCell align="right"><TextField variant="standard" type="number" value={line.receivedQty} onChange={(e) => updateLine(i, 'receivedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
-                    <TableCell align="right"><TextField variant="standard" type="number" value={line.acceptedQty} onChange={(e) => updateLine(i, 'acceptedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
-                    <TableCell align="right"><TextField variant="standard" type="number" value={line.rejectedQty} onChange={(e) => updateLine(i, 'rejectedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
-                    <TableCell>
-                      <TextField
-                        variant="standard"
-                        value={line.batchNumber}
-                        onChange={(e) => updateLine(i, 'batchNumber', e.target.value)}
-                        placeholder="e.g. LM-26071"
-                        error={submitted && line.batchNumber.trim() === ''}
-                        helperText={submitted && line.batchNumber.trim() === '' ? 'Required' : undefined}
-                        sx={{ width: 120 }}
-                      />
-                    </TableCell>
-                    <TableCell><TextField variant="standard" type="date" value={line.expiryDate} onChange={(e) => updateLine(i, 'expiryDate', e.target.value)} sx={{ width: 150 }} /></TableCell>
-                  </TableRow>
-                ))}
+                {lines.map((line, i) => {
+                  const delta = unaccounted(line);
+                  return (
+                    <TableRow key={i}>
+                      <TableCell sx={{ fontWeight: 500 }}>{materialName(line.product)}</TableCell>
+                      <TableCell align="right">{line.orderedQty} {po.items[i]?.unit}</TableCell>
+                      <TableCell align="right"><TextField variant="standard" type="number" value={line.receivedQty} onChange={(e) => updateLine(i, 'receivedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
+                      <TableCell align="right"><TextField variant="standard" type="number" value={line.acceptedQty} onChange={(e) => updateLine(i, 'acceptedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
+                      <TableCell align="right"><TextField variant="standard" type="number" value={line.rejectedQty} onChange={(e) => updateLine(i, 'rejectedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
+                      <TableCell align="right" sx={{ color: delta !== 0 ? 'error.main' : 'text.secondary', fontWeight: delta !== 0 ? 600 : 400 }}>
+                        {delta}
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          variant="standard"
+                          value={line.batchNumber}
+                          onChange={(e) => updateLine(i, 'batchNumber', e.target.value)}
+                          placeholder="e.g. LM-26071"
+                          error={submitted && line.batchNumber.trim() === ''}
+                          helperText={submitted && line.batchNumber.trim() === '' ? 'Required' : undefined}
+                          sx={{ width: 120 }}
+                        />
+                      </TableCell>
+                      <TableCell><TextField variant="standard" type="date" value={line.expiryDate} onChange={(e) => updateLine(i, 'expiryDate', e.target.value)} sx={{ width: 150 }} /></TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
+            {submitted && lines.some((l) => unaccounted(l) !== 0) && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                Accepted + Rejected must equal Received on every line before this GRN can be saved.
+              </Alert>
+            )}
           </CardContent>
         </Card>
 

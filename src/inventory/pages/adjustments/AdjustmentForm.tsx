@@ -37,7 +37,7 @@ function blankItem(): AdjustmentItem & { key: number } {
 
 export default function AdjustmentForm() {
   const navigate = useNavigate();
-  const { items: catalogItems, addAdjustment } = useInventory();
+  const { items: catalogItems, batches, addAdjustment } = useInventory();
 
   const [warehouseId, setWarehouseId] = useState(warehouses[0].id);
   const [type, setType] = useState<'Increase' | 'Decrease'>('Decrease');
@@ -49,6 +49,22 @@ export default function AdjustmentForm() {
 
   const updateRow = (key: number, field: keyof AdjustmentItem, value: string | number) => {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
+  };
+
+  // currentQty always reflects the real system stock of the selected batch — never
+  // hand-typed — so a wrong manual baseline can't silently corrupt the adjustment diff.
+  const selectItem = (key: number, itemId: string) => {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, itemId, batchNumber: '', currentQty: 0 } : r)));
+  };
+
+  const selectBatch = (key: number, batchNumber: string) => {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.key !== key) return r;
+        const batch = batches.find((b) => b.itemId === r.itemId && b.warehouseId === warehouseId && b.batchNumber === batchNumber);
+        return { ...r, batchNumber, currentQty: batch?.availableQty ?? 0 };
+      }),
+    );
   };
 
   const canSubmit =
@@ -106,7 +122,15 @@ export default function AdjustmentForm() {
           <CardContent sx={{ pt: 0 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 3 }}>
-                <FormSelectField fullWidth label="Warehouse" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  label="Warehouse"
+                  value={warehouseId}
+                  onChange={(e) => {
+                    setWarehouseId(e.target.value);
+                    setRows((prev) => prev.map((r) => ({ ...r, batchNumber: '', currentQty: 0 })));
+                  }}
+                >
                   {warehouses.map((w) => (
                     <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
                   ))}
@@ -169,6 +193,7 @@ export default function AdjustmentForm() {
               <TableBody>
                 {rows.map((row) => {
                   const diff = row.actualQty - row.currentQty;
+                  const batchOptions = batches.filter((b) => b.itemId === row.itemId && b.warehouseId === warehouseId);
                   return (
                     <TableRow key={row.key}>
                       <TableCell>
@@ -177,7 +202,7 @@ export default function AdjustmentForm() {
                           variant="standard"
                           fullWidth
                           value={row.itemId}
-                          onChange={(e) => updateRow(row.key, 'itemId', e.target.value)}
+                          onChange={(e) => selectItem(row.key, e.target.value)}
                           error={submitted && row.itemId === ''}
                           helperText={submitted && row.itemId === '' ? 'Required' : undefined}
                           slotProps={{ select: { displayEmpty: true } }}
@@ -192,16 +217,33 @@ export default function AdjustmentForm() {
                       </TableCell>
                       <TableCell>
                         <TextField
+                          select
                           variant="standard"
                           fullWidth
-                          placeholder="Batch number"
                           value={row.batchNumber}
-                          onChange={(e) => updateRow(row.key, 'batchNumber', e.target.value)}
+                          onChange={(e) => selectBatch(row.key, e.target.value)}
                           error={submitted && row.batchNumber.trim() === ''}
-                          helperText={submitted && row.batchNumber.trim() === '' ? 'Required' : undefined}
-                        />
+                          helperText={
+                            submitted && row.batchNumber.trim() === ''
+                              ? 'Required'
+                              : row.itemId !== '' && batchOptions.length === 0
+                                ? 'No batches at this warehouse'
+                                : undefined
+                          }
+                          disabled={row.itemId === ''}
+                          slotProps={{ select: { displayEmpty: true } }}
+                        >
+                          <MenuItem value="" disabled>
+                            Select batch
+                          </MenuItem>
+                          {batchOptions.map((b) => (
+                            <MenuItem key={b.id} value={b.batchNumber}>
+                              {b.batchNumber} (avail: {b.availableQty.toLocaleString()})
+                            </MenuItem>
+                          ))}
+                        </TextField>
                       </TableCell>
-                      <TableCell><TextField variant="standard" type="number" fullWidth value={row.currentQty} onChange={(e) => updateRow(row.key, 'currentQty', Number(e.target.value))} /></TableCell>
+                      <TableCell><TextField variant="standard" type="number" fullWidth value={row.currentQty} disabled /></TableCell>
                       <TableCell><TextField variant="standard" type="number" fullWidth value={row.actualQty} onChange={(e) => updateRow(row.key, 'actualQty', Number(e.target.value))} /></TableCell>
                       <TableCell align="right" sx={{ color: diff < 0 ? 'error.main' : diff > 0 ? 'success.main' : 'text.secondary', fontWeight: 600 }}>
                         {diff > 0 ? `+${diff}` : diff}

@@ -31,12 +31,19 @@ export default function BillForm() {
   const { items: catalogItems } = useInventory();
   const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
 
-  const [poId, setPoId] = useState(purchaseOrders[0]?.id ?? '');
+  // A bill can only be matched against a PO the vendor has actually been sent and
+  // started delivering against — Draft/Pending Approval/Approved/Cancelled orders
+  // have nothing to bill for yet.
+  const billablePOs = purchaseOrders.filter(
+    (p) => p.status === 'Sent' || p.status === 'Partially Received' || p.status === 'Completed',
+  );
+
+  const [poId, setPoId] = useState(billablePOs[0]?.id ?? '');
   const [grnId, setGrnId] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState('');
 
-  const po = purchaseOrders.find((p) => p.id === poId);
+  const po = billablePOs.find((p) => p.id === poId);
   const relatedGrns = po ? grns.filter((g) => g.poNumber === po.poNumber) : [];
 
   const lines = useMemo(
@@ -100,7 +107,8 @@ export default function BillForm() {
           actions={<Button onClick={() => navigate('/finance/bills')}>Cancel</Button>}
         />
         <Alert severity="info">
-          No purchase orders available yet — a supplier bill needs one to match against.
+          No purchase orders are ready to bill against yet — a supplier bill needs one that's been sent to the
+          vendor and has started receiving.
         </Alert>
       </Box>
     );
@@ -133,7 +141,7 @@ export default function BillForm() {
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormSelectField fullWidth label="Purchase Order" value={poId} onChange={(e) => { setPoId(e.target.value); setGrnId(''); }}>
-                  {purchaseOrders.map((p) => (
+                  {billablePOs.map((p) => (
                     <MenuItem key={p.id} value={p.id}>{p.poNumber} — {p.vendorName}</MenuItem>
                   ))}
                 </FormSelectField>

@@ -40,7 +40,7 @@ export default function TransferForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromParam = searchParams.get('from');
-  const { items: catalogItems, addTransfer } = useInventory();
+  const { items: catalogItems, batches, addTransfer } = useInventory();
 
   const [fromWarehouseId, setFromWarehouseId] = useState(fromParam ?? warehouses[0].id);
   const [toWarehouseId, setToWarehouseId] = useState(warehouses.find((w) => w.id !== (fromParam ?? warehouses[0].id))?.id ?? warehouses[1].id);
@@ -53,10 +53,35 @@ export default function TransferForm() {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
   };
 
+  const batchFor = (row: TransferItem) =>
+    batches.find((b) => b.itemId === row.itemId && b.warehouseId === fromWarehouseId && b.batchNumber === row.batchNumber);
+
+  // Picking an item resets the batch/bin selection — batches are scoped to the
+  // source warehouse, so a stale batch code from a different item can't linger.
+  const selectItem = (key: number, itemId: string) => {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, itemId, batchNumber: '', currentBin: '' } : r)));
+  };
+
+  // currentBin and the available-quantity ceiling always come from the real batch
+  // record — never hand-typed — so a transfer can't be created against stock/location
+  // that doesn't actually exist.
+  const selectBatch = (key: number, batchNumber: string) => {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.key !== key) return r;
+        const batch = batches.find((b) => b.itemId === r.itemId && b.warehouseId === fromWarehouseId && b.batchNumber === batchNumber);
+        return { ...r, batchNumber, currentBin: batch?.bin ?? '', quantity: 0 };
+      }),
+    );
+  };
+
   const canSubmit =
     reason.trim() !== '' &&
     fromWarehouseId !== toWarehouseId &&
-    rows.every((r) => r.itemId !== '' && r.batchNumber.trim() !== '' && r.quantity > 0);
+    rows.every((r) => {
+      const batch = batchFor(r);
+      return r.itemId !== '' && r.batchNumber.trim() !== '' && r.quantity > 0 && !!batch && r.quantity <= batch.availableQty;
+    });
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -121,7 +146,10 @@ export default function TransferForm() {
                   required
                   label="Source Warehouse"
                   value={fromWarehouseId}
-                  onChange={(e) => setFromWarehouseId(e.target.value)}
+                  onChange={(e) => {
+                    setFromWarehouseId(e.target.value);
+                    setRows((prev) => prev.map((r) => ({ ...r, batchNumber: '', currentBin: '', quantity: 0 })));
+                  }}
                 >
                   {warehouses.map((w) => (
                     <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
@@ -186,64 +214,93 @@ export default function TransferForm() {
                   <TableCell>Product <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell>Batch <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell>Current Location</TableCell>
-                  <TableCell width={100}>Quantity <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
+                  <TableCell width={120}>Quantity <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell>Destination Bin</TableCell>
                   <TableCell width={50} />
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.key}>
-                    <TableCell>
-                      <TextField
-                        select
-                        variant="standard"
-                        fullWidth
-                        value={row.itemId}
-                        onChange={(e) => updateRow(row.key, 'itemId', e.target.value)}
-                        error={submitted && row.itemId === ''}
-                        helperText={submitted && row.itemId === '' ? 'Required' : undefined}
-                        slotProps={{ select: { displayEmpty: true } }}
-                      >
-                        <MenuItem value="" disabled>
-                          Select item
-                        </MenuItem>
-                        {catalogItems.map((ci) => (
-                          <MenuItem key={ci.id} value={ci.id}>{ci.name}</MenuItem>
-                        ))}
-                      </TextField>
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        variant="standard"
-                        fullWidth
-                        placeholder="Batch number"
-                        value={row.batchNumber}
-                        onChange={(e) => updateRow(row.key, 'batchNumber', e.target.value)}
-                        error={submitted && row.batchNumber.trim() === ''}
-                        helperText={submitted && row.batchNumber.trim() === '' ? 'Required' : undefined}
-                      />
-                    </TableCell>
-                    <TableCell><TextField variant="standard" fullWidth placeholder="e.g. WH01-A1-R1-S1" value={row.currentBin} onChange={(e) => updateRow(row.key, 'currentBin', e.target.value)} /></TableCell>
-                    <TableCell>
-                      <TextField
-                        variant="standard"
-                        type="number"
-                        fullWidth
-                        value={row.quantity}
-                        onChange={(e) => updateRow(row.key, 'quantity', Number(e.target.value))}
-                        error={submitted && row.quantity <= 0}
-                        helperText={submitted && row.quantity <= 0 ? 'Must be > 0' : undefined}
-                      />
-                    </TableCell>
-                    <TableCell><TextField variant="standard" fullWidth placeholder="e.g. WH03-A1-R1-S1" value={row.destinationBin} onChange={(e) => updateRow(row.key, 'destinationBin', e.target.value)} /></TableCell>
-                    <TableCell align="right">
-                      <IconButton size="small" disabled={rows.length === 1} onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}>
-                        <DeleteOutlineRoundedIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {rows.map((row) => {
+                  const batchOptions = batches.filter((b) => b.itemId === row.itemId && b.warehouseId === fromWarehouseId);
+                  const selectedBatch = batchFor(row);
+                  const overAvailable = !!selectedBatch && row.quantity > selectedBatch.availableQty;
+                  return (
+                    <TableRow key={row.key}>
+                      <TableCell>
+                        <TextField
+                          select
+                          variant="standard"
+                          fullWidth
+                          value={row.itemId}
+                          onChange={(e) => selectItem(row.key, e.target.value)}
+                          error={submitted && row.itemId === ''}
+                          helperText={submitted && row.itemId === '' ? 'Required' : undefined}
+                          slotProps={{ select: { displayEmpty: true } }}
+                        >
+                          <MenuItem value="" disabled>
+                            Select item
+                          </MenuItem>
+                          {catalogItems.map((ci) => (
+                            <MenuItem key={ci.id} value={ci.id}>{ci.name}</MenuItem>
+                          ))}
+                        </TextField>
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          select
+                          variant="standard"
+                          fullWidth
+                          value={row.batchNumber}
+                          onChange={(e) => selectBatch(row.key, e.target.value)}
+                          error={submitted && row.batchNumber.trim() === ''}
+                          helperText={
+                            submitted && row.batchNumber.trim() === ''
+                              ? 'Required'
+                              : row.itemId !== '' && batchOptions.length === 0
+                                ? 'No stock at source warehouse'
+                                : undefined
+                          }
+                          disabled={row.itemId === ''}
+                          slotProps={{ select: { displayEmpty: true } }}
+                        >
+                          <MenuItem value="" disabled>
+                            Select batch
+                          </MenuItem>
+                          {batchOptions.map((b) => (
+                            <MenuItem key={b.id} value={b.batchNumber}>
+                              {b.batchNumber} (avail: {b.availableQty.toLocaleString()})
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </TableCell>
+                      <TableCell><TextField variant="standard" fullWidth value={row.currentBin} disabled /></TableCell>
+                      <TableCell>
+                        <TextField
+                          variant="standard"
+                          type="number"
+                          fullWidth
+                          value={row.quantity}
+                          onChange={(e) => updateRow(row.key, 'quantity', Number(e.target.value))}
+                          disabled={!selectedBatch}
+                          error={(submitted && row.quantity <= 0) || overAvailable}
+                          helperText={
+                            overAvailable
+                              ? `Only ${selectedBatch.availableQty.toLocaleString()} available`
+                              : submitted && row.quantity <= 0
+                                ? 'Must be > 0'
+                                : undefined
+                          }
+                        />
+                      </TableCell>
+                      <TableCell><TextField variant="standard" fullWidth placeholder="e.g. WH03-A1-R1-S1" value={row.destinationBin} onChange={(e) => updateRow(row.key, 'destinationBin', e.target.value)} /></TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" disabled={rows.length === 1} onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}>
+                          <DeleteOutlineRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
