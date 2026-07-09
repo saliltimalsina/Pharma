@@ -40,8 +40,11 @@ export default function VendorForm() {
 
   const canSubmit = name.trim() !== '' && email.trim() !== '' && country.trim() !== '';
 
-  const handleSubmit = () => {
-    const id = addVendor({
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    const id = await addVendor({
       name,
       category,
       country,
@@ -158,7 +161,7 @@ export default function VendorForm() {
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
           <Button variant="outlined" onClick={() => navigate('/procurement/vendors')}>Cancel</Button>
-          <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>
+          <Button variant="contained" disabled={!canSubmit || submitting} loading={submitting} onClick={handleSubmit}>
             Submit for Approval
           </Button>
         </Stack>

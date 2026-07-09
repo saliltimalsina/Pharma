@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import {
   requisitions as seedRequisitions,
   vendors as seedVendors,
@@ -6,6 +6,7 @@ import {
   purchaseOrders as seedPurchaseOrders,
   grns as seedGrns,
 } from '../data/mockData';
+import { fetchVendors, fetchVendorCategories, fetchBusinessTypes, createVendor } from './vendorApi';
 import type {
   Requisition,
   Vendor,
@@ -48,7 +49,7 @@ interface ProcurementContextValue {
   approveRequisition: (id: string, approver: string) => void;
   rejectRequisition: (id: string, approver: string, reason: string) => void;
   completeRequisition: (id: string) => void;
-  addVendor: (input: NewVendorInput) => string;
+  addVendor: (input: NewVendorInput) => Promise<string>;
   addVendorDoc: (vendorId: string, doc: VendorDoc) => void;
   removeVendorDoc: (vendorId: string, index: number) => void;
   addRfq: (input: NewRfqInput, send: boolean) => string;
@@ -68,7 +69,6 @@ const ProcurementContext = createContext<ProcurementContextValue | null>(null);
 const SYSTEM_ACTOR = 'Procurement Officer';
 
 let requisitionSeq = seedRequisitions.length;
-let vendorSeq = seedVendors.length;
 let rfqSeq = seedRfqs.length;
 let poSeq = seedPurchaseOrders.length;
 let grnSeq = seedGrns.length;
@@ -112,6 +112,40 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(seedPurchaseOrders);
   const [grns, setGrns] = useState<Grn[]>(seedGrns);
   const [procurementEvents, setProcurementEvents] = useState<ProcurementEvent[]>([]);
+
+  // Vendors are backed by the real API; category/business-type name -> id
+  // lookups are cached here for addVendor (the form only knows names).
+  // Cached as pending promises rather than plain maps so a submit that
+  // races the initial fetch awaits the same in-flight request instead of
+  // reading an empty map.
+  const categoryIdsPromise = useRef<Promise<Map<string, number>> | null>(null);
+  const businessTypeIdsPromise = useRef<Promise<Map<string, number>> | null>(null);
+
+  const loadCategoryIds = () => {
+    if (!categoryIdsPromise.current) {
+      categoryIdsPromise.current = fetchVendorCategories().then(
+        (rows) => new Map(rows.map((r) => [r.name, r.id])),
+      );
+    }
+    return categoryIdsPromise.current;
+  };
+
+  const loadBusinessTypeIds = () => {
+    if (!businessTypeIdsPromise.current) {
+      businessTypeIdsPromise.current = fetchBusinessTypes().then(
+        (rows) => new Map(rows.map((r) => [r.name, r.id])),
+      );
+    }
+    return businessTypeIdsPromise.current;
+  };
+
+  useEffect(() => {
+    fetchVendors()
+      .then(setVendors)
+      .catch((e) => console.error('Failed to load vendors', e));
+    loadCategoryIds().catch((e) => console.error('Failed to load vendor categories', e));
+    loadBusinessTypeIds().catch((e) => console.error('Failed to load business types', e));
+  }, []);
 
   // Append an audit-trail entry. In-memory only (resets on refresh).
   const logEvent = (
@@ -179,18 +213,28 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     if (req) logEvent('Completed', 'Requisition', req.requestNo, SYSTEM_ACTOR);
   };
 
-  const addVendor: ProcurementContextValue['addVendor'] = (input) => {
-    vendorSeq += 1;
-    const id = `V-${String(vendorSeq).padStart(3, '0')}`;
-    const vendor: Vendor = {
-      ...input,
-      id,
-      vendorCode: `VEN-${1000 + vendorSeq}`,
-      outstandingBalance: 0,
-    };
+  const addVendor: ProcurementContextValue['addVendor'] = async (input) => {
+    const [categoryIds, businessTypeIds] = await Promise.all([loadCategoryIds(), loadBusinessTypeIds()]);
+    const vendor = await createVendor({
+      name: input.name,
+      vendorCategoryId: categoryIds.get(input.category) ?? 0,
+      businessTypeId: businessTypeIds.get(input.businessType),
+      phone: input.phone,
+      email: input.email,
+      website: input.website,
+      address: input.address,
+      country: input.country,
+      registrationNumber: input.registrationNumber,
+      vatNumber: input.vatNumber,
+      establishedDate: input.establishedDate || undefined,
+      primaryContact: input.primaryContact,
+      paymentTerms: input.paymentTerms,
+      currency: input.currency,
+      creditLimit: input.creditLimit,
+    });
     setVendors((prev) => [vendor, ...prev]);
     logEvent('Created', 'Vendor', vendor.name, SYSTEM_ACTOR);
-    return id;
+    return vendor.id;
   };
 
   const addVendorDoc: ProcurementContextValue['addVendorDoc'] = (vendorId, doc) => {
