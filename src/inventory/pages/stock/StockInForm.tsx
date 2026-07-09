@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -24,11 +24,11 @@ import type { BatchStatus } from '../../data/types';
 const qcStatuses: BatchStatus[] = ['Under Inspection', 'Released', 'Available', 'Quarantined'];
 
 let lineId = 0;
-function blankLine(warehouseId: string): StockInLine & { key: number } {
+function blankLine(warehouseId: string, itemId = ''): StockInLine & { key: number } {
   lineId += 1;
   return {
     key: lineId,
-    itemId: '',
+    itemId,
     batchNumber: '',
     warehouseId,
     quantity: 0,
@@ -42,8 +42,11 @@ function blankLine(warehouseId: string): StockInLine & { key: number } {
 
 export default function StockInForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromItem = searchParams.get('item') ?? '';
+  const fromWarehouse = searchParams.get('warehouse');
   const { items, receiveStock } = useInventory();
-  const [rows, setRows] = useState([blankLine(warehouses[0].id)]);
+  const [rows, setRows] = useState([blankLine(fromWarehouse ?? warehouses[0].id, fromItem)]);
 
   const updateRow = (key: number, field: keyof StockInLine, value: string | number) => {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));

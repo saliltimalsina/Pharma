@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -38,10 +38,12 @@ function blankItem(): TransferItem & { key: number } {
 
 export default function TransferForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromParam = searchParams.get('from');
   const { items: catalogItems, addTransfer } = useInventory();
 
-  const [fromWarehouseId, setFromWarehouseId] = useState(warehouses[0].id);
-  const [toWarehouseId, setToWarehouseId] = useState(warehouses[1].id);
+  const [fromWarehouseId, setFromWarehouseId] = useState(fromParam ?? warehouses[0].id);
+  const [toWarehouseId, setToWarehouseId] = useState(warehouses.find((w) => w.id !== (fromParam ?? warehouses[0].id))?.id ?? warehouses[1].id);
   const [reason, setReason] = useState('');
   const [requestedBy, setRequestedBy] = useState('Riley Carter');
   const [approver, setApprover] = useState(approvers[0]);

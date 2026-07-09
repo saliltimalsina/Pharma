@@ -52,6 +52,7 @@ export default function POForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromRfq = searchParams.get('fromRfq');
+  const fromVendor = searchParams.get('vendor');
   const { vendors, rfqs, addPurchaseOrder } = useProcurement();
   const { items: catalogItems } = useInventory();
 
@@ -65,7 +66,7 @@ export default function POForm() {
   const sourceVendorId = sourceRfq?.awardedVendor ?? sourceBest?.vendorId;
   const sourceQuote = sourceRfq?.quotes.find((q) => q.vendorId === sourceVendorId);
 
-  const [vendorId, setVendorId] = useState(sourceVendorId ?? vendors[0].id);
+  const [vendorId, setVendorId] = useState(sourceVendorId ?? fromVendor ?? vendors[0].id);
   const [currency, setCurrency] = useState(sourceRfq?.currency ?? 'NPR');
   const [warehouse, setWarehouse] = useState('Main Warehouse - WH01');
   const [department, setDepartment] = useState(departments[0]);

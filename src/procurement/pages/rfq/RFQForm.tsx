@@ -49,6 +49,7 @@ export default function RFQForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromReq = searchParams.get('fromReq');
+  const fromVendor = searchParams.get('vendor');
   const { vendors, requisitions, addRfq } = useProcurement();
   const { items: catalogItems } = useInventory();
 
@@ -65,7 +66,7 @@ export default function RFQForm() {
     }
     return [blankItem()];
   });
-  const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
+  const [selectedVendors, setSelectedVendors] = useState<string[]>(fromVendor ? [fromVendor] : []);
 
   const toggleVendor = (id: string) =>
     setSelectedVendors((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));

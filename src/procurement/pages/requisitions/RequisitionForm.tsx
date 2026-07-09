@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -32,11 +32,11 @@ import type { Priority, RequisitionItem } from '../../data/types';
 const priorities: Priority[] = ['Low', 'Medium', 'High', 'Urgent'];
 
 let rowId = 0;
-function blankItem(): RequisitionItem & { key: number } {
+function blankItem(itemId = ''): RequisitionItem & { key: number } {
   rowId += 1;
   return {
     key: rowId,
-    item: '',
+    item: itemId,
     description: '',
     requiredQty: 0,
     unit: 'kg',
@@ -48,9 +48,11 @@ function blankItem(): RequisitionItem & { key: number } {
 
 export default function RequisitionForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromItem = searchParams.get('item') ?? '';
   const { addRequisition } = useProcurement();
   const { items: catalogItems } = useInventory();
-  const [items, setItems] = useState([blankItem()]);
+  const [items, setItems] = useState([blankItem(fromItem)]);
   const [department, setDepartment] = useState(departments[0]);
   const [requester, setRequester] = useState('Riley Carter');
   const [requiredDate, setRequiredDate] = useState('');

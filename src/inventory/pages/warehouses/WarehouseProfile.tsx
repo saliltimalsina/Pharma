@@ -114,51 +114,78 @@ export default function WarehouseProfile() {
 
   const stockTab = (
     <Card variant="outlined">
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Product</TableCell>
-            <TableCell>Batch</TableCell>
-            <TableCell align="right">Available</TableCell>
-            <TableCell>Status</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {whBatches.map((b) => (
-            <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/stock/${b.id}`)}>
-              <TableCell sx={{ fontWeight: 500 }}>{itemById(b.itemId)?.name}</TableCell>
-              <TableCell>{b.batchNumber}</TableCell>
-              <TableCell align="right">{b.availableQty.toLocaleString()}</TableCell>
-              <TableCell><StatusChip status={b.qcStatus} /></TableCell>
+      {whBatches.length === 0 ? (
+        <Stack sx={{ alignItems: 'center', py: 5, gap: 1.5 }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            No stock recorded at this warehouse yet.
+          </Typography>
+          <Stack direction="row" sx={{ gap: 1.5 }}>
+            <Button variant="contained" size="small" onClick={() => navigate(`/inventory/stock/new?warehouse=${warehouse.id}`)}>
+              Stock In
+            </Button>
+            <Button variant="outlined" size="small" onClick={() => navigate(`/inventory/transfers/new?from=${warehouse.id}`)}>
+              Transfer In Stock
+            </Button>
+          </Stack>
+        </Stack>
+      ) : (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Product</TableCell>
+              <TableCell>Batch</TableCell>
+              <TableCell align="right">Available</TableCell>
+              <TableCell>Status</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {whBatches.map((b) => (
+              <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/stock/${b.id}`)}>
+                <TableCell sx={{ fontWeight: 500 }}>{itemById(b.itemId)?.name}</TableCell>
+                <TableCell>{b.batchNumber}</TableCell>
+                <TableCell align="right">{b.availableQty.toLocaleString()}</TableCell>
+                <TableCell><StatusChip status={b.qcStatus} /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </Card>
   );
 
   const transfersTab = (
     <Card variant="outlined">
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Transfer</TableCell>
-            <TableCell>Direction</TableCell>
-            <TableCell>Date</TableCell>
-            <TableCell>Status</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {[...whTransfersOut.map((t) => ({ t, dir: 'Outgoing' })), ...whTransfersIn.map((t) => ({ t, dir: 'Incoming' }))].map(({ t, dir }) => (
-            <TableRow key={t.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/transfers/${t.id}`)}>
-              <TableCell sx={{ fontWeight: 500 }}>{t.transferNumber}</TableCell>
-              <TableCell>{dir}</TableCell>
-              <TableCell>{t.transferDate}</TableCell>
-              <TableCell><StatusChip status={t.status} /></TableCell>
+      {whTransfersOut.length === 0 && whTransfersIn.length === 0 ? (
+        <Stack sx={{ alignItems: 'center', py: 5, gap: 1.5 }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            No transfers in or out of this warehouse yet.
+          </Typography>
+          <Button variant="outlined" size="small" onClick={() => navigate(`/inventory/transfers/new?from=${warehouse.id}`)}>
+            New Transfer
+          </Button>
+        </Stack>
+      ) : (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Transfer</TableCell>
+              <TableCell>Direction</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell>Status</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {[...whTransfersOut.map((t) => ({ t, dir: 'Outgoing' })), ...whTransfersIn.map((t) => ({ t, dir: 'Incoming' }))].map(({ t, dir }) => (
+              <TableRow key={t.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/transfers/${t.id}`)}>
+                <TableCell sx={{ fontWeight: 500 }}>{t.transferNumber}</TableCell>
+                <TableCell>{dir}</TableCell>
+                <TableCell>{t.transferDate}</TableCell>
+                <TableCell><StatusChip status={t.status} /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </Card>
   );
 

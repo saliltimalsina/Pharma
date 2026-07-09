@@ -157,82 +157,117 @@ export default function ItemDetail() {
     </Grid>
   );
 
+  // Shown when this item has never had stock recorded - the two real ways to
+  // get some are receiving a PO via GRN, or a manual Stock In for opening
+  // balances/found stock (mirrors the empty-state CTA pattern used elsewhere,
+  // e.g. BillForm's "no purchase orders yet").
+  const noStockState = (
+    <Stack sx={{ alignItems: 'center', py: 5, gap: 1.5 }}>
+      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        No stock recorded for this item yet.
+      </Typography>
+      <Stack direction="row" sx={{ gap: 1.5 }}>
+        <Button variant="contained" size="small" onClick={() => navigate(`/inventory/stock/new?item=${item.id}`)}>
+          Stock In
+        </Button>
+        <Button variant="outlined" size="small" onClick={() => navigate(`/procurement/requisitions/new?item=${item.id}`)}>
+          Request Materials
+        </Button>
+      </Stack>
+    </Stack>
+  );
+
   const stockTab = (
     <Card variant="outlined">
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Warehouse</TableCell>
-            <TableCell>Batch</TableCell>
-            <TableCell align="right">Available</TableCell>
-            <TableCell align="right">Reserved</TableCell>
-            <TableCell>Expiry</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {itemBatches.map((b) => (
-            <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/stock/${b.id}`)}>
-              <TableCell>{warehouseById(b.warehouseId)?.name}</TableCell>
-              <TableCell sx={{ fontWeight: 500 }}>{b.batchNumber}</TableCell>
-              <TableCell align="right">{b.availableQty.toLocaleString()}</TableCell>
-              <TableCell align="right">{b.reservedQty.toLocaleString()}</TableCell>
-              <TableCell><ExpiryChip dateStr={b.expiryDate} /></TableCell>
+      {itemBatches.length === 0 ? noStockState : (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Warehouse</TableCell>
+              <TableCell>Batch</TableCell>
+              <TableCell align="right">Available</TableCell>
+              <TableCell align="right">Reserved</TableCell>
+              <TableCell>Expiry</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {itemBatches.map((b) => (
+              <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/stock/${b.id}`)}>
+                <TableCell>{warehouseById(b.warehouseId)?.name}</TableCell>
+                <TableCell sx={{ fontWeight: 500 }}>{b.batchNumber}</TableCell>
+                <TableCell align="right">{b.availableQty.toLocaleString()}</TableCell>
+                <TableCell align="right">{b.reservedQty.toLocaleString()}</TableCell>
+                <TableCell><ExpiryChip dateStr={b.expiryDate} /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </Card>
   );
 
   const batchesTab = (
     <Card variant="outlined">
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>Batch Number</TableCell>
-            <TableCell>Manufacturing Date</TableCell>
-            <TableCell>Expiry Date</TableCell>
-            <TableCell align="right">Available Qty</TableCell>
-            <TableCell>Status</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {itemBatches.map((b) => (
-            <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/stock/${b.id}`)}>
-              <TableCell sx={{ fontWeight: 500 }}>{b.batchNumber}</TableCell>
-              <TableCell>{b.manufacturingDate}</TableCell>
-              <TableCell>{b.expiryDate}</TableCell>
-              <TableCell align="right">{b.availableQty.toLocaleString()}</TableCell>
-              <TableCell><StatusChip status={b.qcStatus} /></TableCell>
+      {itemBatches.length === 0 ? noStockState : (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Batch Number</TableCell>
+              <TableCell>Manufacturing Date</TableCell>
+              <TableCell>Expiry Date</TableCell>
+              <TableCell align="right">Available Qty</TableCell>
+              <TableCell>Status</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {itemBatches.map((b) => (
+              <TableRow key={b.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/inventory/stock/${b.id}`)}>
+                <TableCell sx={{ fontWeight: 500 }}>{b.batchNumber}</TableCell>
+                <TableCell>{b.manufacturingDate}</TableCell>
+                <TableCell>{b.expiryDate}</TableCell>
+                <TableCell align="right">{b.availableQty.toLocaleString()}</TableCell>
+                <TableCell><StatusChip status={b.qcStatus} /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </Card>
   );
 
   const purchaseHistoryTab = (
     <Card variant="outlined">
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell>PO Number</TableCell>
-            <TableCell>GRN Number</TableCell>
-            <TableCell>Supplier</TableCell>
-            <TableCell align="right">Qty Received</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {itemBatches.map((b) => (
-            <TableRow key={b.id} hover>
-              <TableCell sx={{ fontWeight: 500 }}>{b.poNumber}</TableCell>
-              <TableCell>{b.grnNumber}</TableCell>
-              <TableCell>{b.supplierName}</TableCell>
-              <TableCell align="right">{b.receivedQty.toLocaleString()}</TableCell>
+      {itemBatches.length === 0 ? (
+        <Stack sx={{ alignItems: 'center', py: 5, gap: 1.5 }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            No purchase history for this item yet.
+          </Typography>
+          <Button variant="outlined" size="small" onClick={() => navigate(`/procurement/requisitions/new?item=${item.id}`)}>
+            Request Materials
+          </Button>
+        </Stack>
+      ) : (
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>PO Number</TableCell>
+              <TableCell>GRN Number</TableCell>
+              <TableCell>Supplier</TableCell>
+              <TableCell align="right">Qty Received</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {itemBatches.map((b) => (
+              <TableRow key={b.id} hover>
+                <TableCell sx={{ fontWeight: 500 }}>{b.poNumber}</TableCell>
+                <TableCell>{b.grnNumber}</TableCell>
+                <TableCell>{b.supplierName}</TableCell>
+                <TableCell align="right">{b.receivedQty.toLocaleString()}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </Card>
   );
 

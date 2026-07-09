@@ -257,7 +257,16 @@ export default function VendorProfile() {
         </TableHead>
         <TableBody>
           {vendorPOs.length === 0 && (
-            <TableRow><TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>No purchase orders yet</TableCell></TableRow>
+            <TableRow>
+              <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>
+                <Stack sx={{ alignItems: 'center', py: 2, gap: 1.5 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>No purchase orders yet</Typography>
+                  <Button variant="outlined" size="small" onClick={() => navigate(`/procurement/purchase-orders/new?vendor=${vendor.id}`)}>
+                    Create Purchase Order
+                  </Button>
+                </Stack>
+              </TableCell>
+            </TableRow>
           )}
           {vendorPOs.map((po) => (
             <TableRow key={po.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/procurement/purchase-orders/${po.id}`)}>
@@ -286,7 +295,16 @@ export default function VendorProfile() {
         </TableHead>
         <TableBody>
           {vendorRFQs.length === 0 && (
-            <TableRow><TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>Not invited to any RFQs</TableCell></TableRow>
+            <TableRow>
+              <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>
+                <Stack sx={{ alignItems: 'center', py: 2, gap: 1.5 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>Not invited to any RFQs</Typography>
+                  <Button variant="outlined" size="small" onClick={() => navigate(`/procurement/rfqs/new?vendor=${vendor.id}`)}>
+                    Create RFQ
+                  </Button>
+                </Stack>
+              </TableCell>
+            </TableRow>
           )}
           {vendorRFQs.map((r) => (
             <TableRow key={r.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/procurement/rfqs/${r.id}`)}>
