@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -30,17 +30,23 @@ import type { GrnItem, GrnInspectionResult, PurchaseOrder } from '../../data/typ
 
 const inspectionChecks = ['Packaging', 'Temperature', 'Damage', 'Quality'];
 
-// Build editable receiving lines from a purchase order's items.
+// Build editable receiving lines from a purchase order's items. A PO already
+// partially received (a prior GRN) should only offer the remaining, unreceived
+// quantity here - defaulting to the full original order would let a second
+// shipment silently double up on what's already been received.
 function linesFromPo(po: PurchaseOrder): GrnItem[] {
-  return po.items.map((it) => ({
-    product: it.product,
-    orderedQty: it.qty,
-    receivedQty: it.qty,
-    acceptedQty: it.qty,
-    rejectedQty: 0,
-    batchNumber: '',
-    expiryDate: '',
-  }));
+  return po.items.map((it) => {
+    const remaining = Math.max(0, it.qty - (it.receivedQty ?? 0));
+    return {
+      product: it.product,
+      orderedQty: remaining,
+      receivedQty: remaining,
+      acceptedQty: remaining,
+      rejectedQty: 0,
+      batchNumber: '',
+      expiryDate: '',
+    };
+  });
 }
 
 // Default the receiving warehouse from the PO's warehouse label (e.g. "Main
@@ -57,7 +63,7 @@ export default function GRNForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromPo = searchParams.get('fromPo');
-  const { purchaseOrders, addGrn } = useProcurement();
+  const { loading, purchaseOrders, addGrn } = useProcurement();
   const { items: catalogItems, refreshBatches } = useInventory();
   const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
 
@@ -69,16 +75,18 @@ export default function GRNForm() {
   const receivablePOs = purchaseOrders.filter(
     (p) => p.status === 'Sent' || p.status === 'Partially Received' || p.id === fromPo,
   );
+  // Purchase orders load asynchronously - on a fresh navigation the list can
+  // still be empty here, so this must not assume a PO exists.
   const initialPoId =
     fromPo && purchaseOrders.some((p) => p.id === fromPo)
       ? fromPo
-      : (receivablePOs[0] ?? purchaseOrders[0]).id;
+      : (receivablePOs[0] ?? purchaseOrders[0])?.id ?? '';
 
   const [poId, setPoId] = useState(initialPoId);
   const po = purchaseOrders.find((p) => p.id === poId) ?? purchaseOrders[0];
 
-  const [lines, setLines] = useState<GrnItem[]>(() => linesFromPo(po));
-  const [warehouseId, setWarehouseId] = useState(() => resolveWarehouseId(po.warehouse));
+  const [lines, setLines] = useState<GrnItem[]>(() => (po ? linesFromPo(po) : []));
+  const [warehouseId, setWarehouseId] = useState(() => (po ? resolveWarehouseId(po.warehouse) : ''));
   const [receivedDate, setReceivedDate] = useState(today);
   const [deliveryNote, setDeliveryNote] = useState('');
   const [checks, setChecks] = useState<Record<string, string>>({
@@ -87,6 +95,22 @@ export default function GRNForm() {
     Damage: 'pass',
     Quality: 'pass',
   });
+
+  // Purchase orders can still be loading when this page mounts (no PO selected
+  // yet) - once they arrive, pick the same default the initial-render logic would
+  // have picked had the data already been there.
+  useEffect(() => {
+    if (poId !== '' || purchaseOrders.length === 0) return;
+    const preferred =
+      fromPo && purchaseOrders.some((p) => p.id === fromPo)
+        ? fromPo
+        : (receivablePOs[0] ?? purchaseOrders[0]).id;
+    const preferredPo = purchaseOrders.find((p) => p.id === preferred);
+    if (!preferredPo) return;
+    setPoId(preferred);
+    setLines(linesFromPo(preferredPo));
+    setWarehouseId(resolveWarehouseId(preferredPo.warehouse));
+  }, [purchaseOrders, poId, fromPo, receivablePOs]);
 
   const handlePoChange = (newId: string) => {
     setPoId(newId);
@@ -149,6 +173,23 @@ export default function GRNForm() {
       setSubmitting(false);
     }
   };
+
+  if (!po) {
+    return (
+      <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1400px' } }}>
+        <PageHeader
+          title="Create GRN"
+          subtitle="Record and inspect received goods against a purchase order"
+          actions={
+            <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement/grn')}>Cancel</Button>
+          }
+        />
+        <Alert severity="info">
+          {loading ? 'Loading purchase orders…' : 'No purchase orders are available to receive against yet.'}
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1400px' } }}>

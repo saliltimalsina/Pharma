@@ -267,17 +267,17 @@ export default function POForm() {
             }
           />
           <CardContent sx={{ pt: 0 }}>
-            <Table size="small">
+            <Table size="small" sx={{ tableLayout: 'fixed' }}>
               <TableHead>
                 <TableRow>
-                  <TableCell>Product <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
-                  <TableCell>Description</TableCell>
-                  <TableCell width={80}>Qty</TableCell>
-                  <TableCell width={80}>Unit</TableCell>
-                  <TableCell width={100}>Unit Price</TableCell>
-                  <TableCell width={90}>Discount %</TableCell>
-                  <TableCell width={80}>VAT %</TableCell>
-                  <TableCell width={110} align="right">Total</TableCell>
+                  <TableCell width={180}>Product <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
+                  <TableCell width={140}>Description</TableCell>
+                  <TableCell width={110}>Qty</TableCell>
+                  <TableCell width={90}>Unit</TableCell>
+                  <TableCell width={120}>Unit Price</TableCell>
+                  <TableCell width={100}>Discount %</TableCell>
+                  <TableCell width={90}>VAT %</TableCell>
+                  <TableCell width={120} align="right">Total</TableCell>
                   <TableCell width={50} />
                 </TableRow>
               </TableHead>

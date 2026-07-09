@@ -1,7 +1,7 @@
 import type {} from '@mui/x-charts/themeAugmentation';
 import type {} from '@mui/x-data-grid/themeAugmentation';
 import type {} from '@mui/x-tree-view/themeAugmentation';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { alpha } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
@@ -10,6 +10,7 @@ import AppNavbar from './components/AppNavbar';
 import Header from './components/Header';
 import SideMenu from './components/SideMenu';
 import AppTheme from '../shared-theme/AppTheme';
+import RouteErrorBoundary from '../shared/components/RouteErrorBoundary';
 import {
   chartsCustomizations,
   dataGridCustomizations,
@@ -23,6 +24,7 @@ const xThemeComponents = {
 };
 
 export default function Dashboard(props: { disableCustomTheme?: boolean }) {
+  const location = useLocation();
   return (
     <AppTheme {...props} themeComponents={xThemeComponents}>
       <CssBaseline enableColorScheme />
@@ -50,7 +52,9 @@ export default function Dashboard(props: { disableCustomTheme?: boolean }) {
             }}
           >
             <Header />
-            <Outlet />
+            <RouteErrorBoundary key={location.pathname}>
+              <Outlet />
+            </RouteErrorBoundary>
           </Stack>
         </Box>
       </Box>

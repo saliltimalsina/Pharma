@@ -56,6 +56,24 @@ export default function FinancialReports() {
     };
   });
 
+  // Grouped from actual invoice lines (product is freeform text on InvoiceForm,
+  // not tied to the Item Master catalog), not a fixed product list.
+  const salesByProduct = (() => {
+    const byProduct = new Map<string, { qty: number; revenue: number }>();
+    for (const i of invoices) {
+      if (['Proforma', 'Cancelled'].includes(i.status)) continue;
+      for (const l of i.lines) {
+        const entry = byProduct.get(l.product) ?? { qty: 0, revenue: 0 };
+        entry.qty += l.quantity;
+        entry.revenue += l.quantity * l.unitPrice;
+        byProduct.set(l.product, entry);
+      }
+    }
+    return Array.from(byProduct.entries())
+      .map(([product, { qty, revenue }]) => ({ product, qty, revenue }))
+      .sort((a, b) => b.revenue - a.revenue);
+  })();
+
   const purchasesBySupplier = vendors.map((v) => {
     const vendorBills = supplierBills.filter((b) => b.vendorId === v.id && b.status !== 'Cancelled');
     return {
@@ -233,17 +251,16 @@ export default function FinancialReports() {
               <TableRow><TableCell>Product</TableCell><TableCell align="right">Units Sold</TableCell><TableCell align="right">Revenue</TableCell></TableRow>
             </TableHead>
             <TableBody>
-              {['Paracetamol 500mg Tablets', 'Ibuprofen 400mg Tablets', 'Metformin 500mg Tablets'].map((p) => {
-                const qty = invoices.flatMap((i) => i.lines).filter((l) => l.product === p).reduce((s, l) => s + l.quantity, 0);
-                const rev = invoices.flatMap((i) => i.lines).filter((l) => l.product === p).reduce((s, l) => s + l.quantity * l.unitPrice, 0);
-                return (
-                  <TableRow key={p} hover>
-                    <TableCell sx={{ fontWeight: 500 }}>{p}</TableCell>
-                    <TableCell align="right">{qty.toLocaleString()}</TableCell>
-                    <TableCell align="right">NPR {rev.toLocaleString()}</TableCell>
-                  </TableRow>
-                );
-              })}
+              {salesByProduct.length === 0 && (
+                <TableRow><TableCell colSpan={3} sx={{ color: 'text.secondary' }}>No sales recorded yet.</TableCell></TableRow>
+              )}
+              {salesByProduct.map(({ product, qty, revenue }) => (
+                <TableRow key={product} hover>
+                  <TableCell sx={{ fontWeight: 500 }}>{product}</TableCell>
+                  <TableCell align="right">{qty.toLocaleString()}</TableCell>
+                  <TableCell align="right">NPR {revenue.toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>

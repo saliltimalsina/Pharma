@@ -18,6 +18,7 @@ import { fetchCustomers } from './customerApi';
 import { fetchInvoices, createInvoice, convertProformaApi, cancelInvoiceApi, type CreateInvoiceInput } from './invoiceApi';
 import { fetchBills, createBill, approveBillApi, cancelBillApi } from './billApi';
 import { fetchPayments, createPayment, type CreatePaymentInput } from './paymentApi';
+import { fetchFinanceEvents } from './financeEventApi';
 import { fetchCreditNotes, createCreditNote } from './creditNoteApi';
 import { fetchDebitNotes, createDebitNote } from './debitNoteApi';
 import type {
@@ -136,6 +137,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       fetchPayments().then(setPayments).catch((e) => console.error('Failed to load payments', e)),
       fetchCreditNotes().then(setCreditNotes).catch((e) => console.error('Failed to load credit notes', e)),
       fetchDebitNotes().then(setDebitNotes).catch((e) => console.error('Failed to load debit notes', e)),
+      fetchFinanceEvents().then(setFinanceEvents).catch((e) => console.error('Failed to load finance events', e)),
     ]).then(() => setLoading(false));
   }, []);
 

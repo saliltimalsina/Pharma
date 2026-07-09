@@ -7,7 +7,6 @@ import {
   batches as seedBatches,
   movements as seedMovements,
   warehouses,
-  deriveBin,
 } from '../data/mockData';
 import { fetchItems, createItem } from './itemApi';
 import { fetchWarehouses } from './warehouseApi';
@@ -20,6 +19,7 @@ import {
   returnStockApi,
   reserveStockApi,
   stockOutApi,
+  updateBatchBinApi,
 } from './batchApi';
 import {
   fetchTransfers,
@@ -35,6 +35,8 @@ import {
   rejectAdjustmentApi,
   type CreateAdjustmentInput,
 } from './adjustmentApi';
+import { fetchStockMovements } from './stockMovementApi';
+import { receiveStockApi } from './stockInApi';
 import type {
   Item,
   Transfer,
@@ -45,7 +47,6 @@ import type {
   StockEntry,
   BatchStatus,
   StockMovement,
-  MovementType,
 } from '../data/types';
 
 type NewItemInput = Omit<Item, 'id' | 'sku' | 'status'>;
@@ -89,8 +90,8 @@ interface InventoryContextValue {
   stockEntries: StockEntry[];
   movements: StockMovement[];
   addItem: (input: NewItemInput) => Promise<string>;
-  // Local-only simulation (no backend endpoint) - see StockInLine. Returns affected batch ids.
-  receiveStock: (lines: StockInLine[]) => string[];
+  // Manual receipt outside the GRN flow - see StockInLine.
+  receiveStock: (lines: StockInLine[]) => Promise<void>;
   // Issue / consume stock. Deducts available FEFO/FIFO across the item's batches.
   stockOut: (lines: StockOutLine[]) => Promise<void>;
   addTransfer: (input: NewTransferInput, submit: boolean) => Promise<string>;
@@ -105,7 +106,7 @@ interface InventoryContextValue {
   returnStock: (batchId: string, qty: number) => Promise<void>;
   recallBatch: (batchId: string) => Promise<void>;
   disposeBatch: (batchId: string) => Promise<void>;
-  updateBatchBin: (batchId: string, bin: string) => void;
+  updateBatchBin: (batchId: string, bin: string) => Promise<void>;
   // QC sign-off: moves a batch's pending-inspection quantity into available stock.
   releaseBatch: (batchId: string, approvedBy: string) => Promise<void>;
   // Refetch batches - call after an external event (e.g. a GRN completing) creates new ones.
@@ -115,25 +116,6 @@ interface InventoryContextValue {
 const InventoryContext = createContext<InventoryContextValue | null>(null);
 
 let itemSeq = seedItems.length;
-let batchSeq = seedBatches.length;
-let movementSeq = seedMovements.length;
-
-const today = () => new Date().toISOString().slice(0, 10);
-
-// Build a ledger record. Called in action bodies (not inside setState updaters) so
-// the sequence counter stays deterministic under StrictMode double-invocation.
-function makeMovement(
-  type: MovementType,
-  itemId: string,
-  batchNumber: string,
-  warehouseId: string,
-  qty: number,
-  reference: string,
-  by: string,
-): StockMovement {
-  movementSeq += 1;
-  return { id: `MOV-${String(movementSeq).padStart(4, '0')}`, date: today(), type, itemId, batchNumber, warehouseId, qty, reference, by };
-}
 
 // Derived stock-entry view over batches — same id as the underlying batch, since a
 // stock entry and its batch are the same record viewed from two angles (list/detail
@@ -187,15 +169,12 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       fetchBatches().then(setBatches).catch((e) => console.error('Failed to load batches', e)),
       fetchTransfers().then(setTransfers).catch((e) => console.error('Failed to load transfers', e)),
       fetchAdjustments().then(setAdjustments).catch((e) => console.error('Failed to load adjustments', e)),
+      fetchStockMovements().then(setMovements).catch((e) => console.error('Failed to load stock movements', e)),
     ]).then(() => setLoading(false));
   }, []);
 
   const refreshBatches: InventoryContextValue['refreshBatches'] = async () => {
     setBatches(await fetchBatches());
-  };
-
-  const logMovements = (recs: StockMovement[]) => {
-    if (recs.length) setMovements((prev) => [...prev, ...recs]);
   };
 
   const addItem: InventoryContextValue['addItem'] = async (input) => {
@@ -220,66 +199,41 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     return item.id;
   };
 
-  const receiveStock: InventoryContextValue['receiveStock'] = (lines) => {
-    const affected: string[] = [];
-    const recs: StockMovement[] = [];
-    const next = [...batches];
-    for (const line of lines) {
-      if (line.quantity <= 0) continue;
-      const idx = next.findIndex(
-        (b) => b.batchNumber === line.batchNumber && b.warehouseId === line.warehouseId,
-      );
-      if (idx >= 0) {
-        const b = next[idx];
-        next[idx] = {
-          ...b,
-          receivedQty: b.receivedQty + line.quantity,
-          availableQty: b.availableQty + line.quantity,
-        };
-        affected.push(b.id);
-      } else {
-        batchSeq += 1;
-        const id = `BATCH-${String(batchSeq).padStart(3, '0')}`;
-        const qc: BatchStatus = line.qcStatus ?? 'Under Inspection';
-        next.push({
-          id,
+  const QC_VALUE: Record<BatchStatus, 'available' | 'quarantined' | 'under_inspection' | 'released' | 'expired' | 'recalled'> = {
+    Available: 'available',
+    Quarantined: 'quarantined',
+    'Under Inspection': 'under_inspection',
+    Released: 'released',
+    Expired: 'expired',
+    Recalled: 'recalled',
+  };
+
+  const receiveStock: InventoryContextValue['receiveStock'] = async (lines) => {
+    await receiveStockApi(
+      lines
+        .filter((line) => line.quantity > 0)
+        .map((line) => ({
+          rawMaterialId: line.itemId,
           batchNumber: line.batchNumber,
-          itemId: line.itemId,
-          supplierName: line.supplierName,
-          poNumber: line.poNumber,
-          grnNumber: line.grnNumber,
-          warehouseId: line.warehouseId,
-          bin: deriveBin(line.warehouseId, batchSeq),
-          manufacturingDate: line.manufacturingDate ?? '',
-          expiryDate: line.expiryDate,
-          shelfLifeMonths: line.shelfLifeMonths ?? 0,
-          countryOfOrigin: line.countryOfOrigin ?? '',
-          qcStatus: qc,
-          inspectionResult: qc === 'Released' ? 'Pass' : 'Pending',
-          approvedBy: '',
-          releasedDate: '',
-          receivedQty: line.quantity,
-          // Goods under inspection are not yet available; released goods are.
-          availableQty: qc === 'Released' || qc === 'Available' ? line.quantity : 0,
-          reservedQty: 0,
-          damagedQty: 0,
-          returnedQty: 0,
-        });
-        affected.push(id);
-      }
-      recs.push(makeMovement('In', line.itemId, line.batchNumber, line.warehouseId, line.quantity, line.grnNumber || line.poNumber || 'Stock In', line.supplierName));
-    }
-    setBatches(next);
-    logMovements(recs);
-    return affected;
+          warehouseId: Number(line.warehouseId),
+          quantity: line.quantity,
+          expiryDate: line.expiryDate || undefined,
+          manufacturingDate: line.manufacturingDate || undefined,
+          reference: line.grnNumber || line.poNumber || undefined,
+          shelfLifeMonths: line.shelfLifeMonths,
+          countryOfOrigin: line.countryOfOrigin || undefined,
+          qcStatus: QC_VALUE[line.qcStatus ?? 'Under Inspection'],
+        })),
+    );
+    const [freshBatches, freshMovements] = await Promise.all([fetchBatches(), fetchStockMovements()]);
+    setBatches(freshBatches);
+    setMovements(freshMovements);
   };
 
   // Issue stock out of a warehouse - the backend picks the item's batches in FEFO/FIFO
-  // order and deducts available until the requested quantity is met, all-or-nothing.
-  // It doesn't report which batches it touched, so movements are reconstructed by
-  // diffing available qty per batch before/after against the refreshed list.
+  // order and deducts available until the requested quantity is met, all-or-nothing,
+  // and appends its own stock-movement rows - refetch both after.
   const stockOut: InventoryContextValue['stockOut'] = async (lines) => {
-    const before = new Map(batches.map((b) => [b.id, b]));
     await stockOutApi(
       lines.map((l) => ({
         rawMaterialId: l.itemId,
@@ -288,17 +242,9 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         reference: l.reference,
       })),
     );
-    const fresh = await fetchBatches();
-    const recs: StockMovement[] = [];
-    for (const b of fresh) {
-      const prev = before.get(b.id);
-      const delta = b.availableQty - (prev?.availableQty ?? b.availableQty);
-      if (delta === 0) continue;
-      const line = lines.find((l) => l.itemId === b.itemId && l.warehouseId === b.warehouseId);
-      recs.push(makeMovement('Out', b.itemId, b.batchNumber, b.warehouseId, delta, line?.reference || 'Stock Out', line?.by || ''));
-    }
+    const [fresh, freshMovements] = await Promise.all([fetchBatches(), fetchStockMovements()]);
     setBatches(fresh);
-    logMovements(recs);
+    setMovements(freshMovements);
   };
 
   const REASON_VALUE: Record<Adjustment['reason'], CreateAdjustmentInput['reason']> = {
@@ -335,22 +281,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   };
 
   // Completing a transfer actually moves quantity server-side: decrements the source
-  // batch, creates/tops-up a same-numbered batch in the destination warehouse - refresh
-  // batches afterward so Inventory reflects it, and reconstruct movements by diffing.
+  // batch, creates/tops-up a same-numbered batch in the destination warehouse, and
+  // appends its own stock-movement rows - refetch both after.
   const completeTransfer: InventoryContextValue['completeTransfer'] = async (id) => {
-    const transfer = transfers.find((t) => t.id === id);
-    if (!transfer) return;
-    const before = new Map(batches.map((b) => [b.id, b]));
     const updated = await completeTransferApi(id);
-    const fresh = await fetchBatches();
-    const recs: StockMovement[] = [];
-    for (const b of fresh) {
-      const prev = before.get(b.id);
-      const delta = b.availableQty - (prev?.availableQty ?? 0);
-      if (delta !== 0) recs.push(makeMovement('Transfer', b.itemId, b.batchNumber, b.warehouseId, delta, transfer.transferNumber, transfer.requestedBy));
-    }
+    const [fresh, freshMovements] = await Promise.all([fetchBatches(), fetchStockMovements()]);
     setBatches(fresh);
-    logMovements(recs);
+    setMovements(freshMovements);
     setTransfers((prev) => prev.map((t) => (t.id === id ? updated : t)));
   };
 
@@ -379,22 +316,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   };
 
   // Approving an adjustment reconciles system stock to the counted actual quantity -
-  // the backend applies the delta onto the matching batch server-side.
-  const approveAdjustment: InventoryContextValue['approveAdjustment'] = async (id, approver) => {
-    const adjustment = adjustments.find((a) => a.id === id);
-    const before = new Map(batches.map((b) => [b.id, b]));
+  // the backend applies the delta onto the matching batch and appends its own
+  // stock-movement row - refetch both after.
+  const approveAdjustment: InventoryContextValue['approveAdjustment'] = async (id, _approver) => {
     const updated = await approveAdjustmentApi(id);
-    const fresh = await fetchBatches();
-    const recs: StockMovement[] = [];
-    for (const b of fresh) {
-      const prev = before.get(b.id);
-      const delta = b.availableQty - (prev?.availableQty ?? b.availableQty);
-      if (delta !== 0 && adjustment) {
-        recs.push(makeMovement('Adjustment', b.itemId, b.batchNumber, b.warehouseId, delta, adjustment.adjustmentNo || adjustment.reference, approver));
-      }
-    }
+    const [fresh, freshMovements] = await Promise.all([fetchBatches(), fetchStockMovements()]);
     setBatches(fresh);
-    logMovements(recs);
+    setMovements(freshMovements);
     setAdjustments((prev) => prev.map((a) => (a.id === id ? updated : a)));
   };
 
@@ -404,20 +332,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   };
 
   // Reserve stock for an item at a warehouse - the backend allocates across
-  // batches FEFO/FIFO server-side; movements are reconstructed the same way as stockOut.
+  // batches FEFO/FIFO server-side and appends its own stock-movement rows.
   const reserveStock: InventoryContextValue['reserveStock'] = async (itemId, warehouseId, qty) => {
     if (qty <= 0) return;
-    const before = new Map(batches.map((b) => [b.id, b]));
     await reserveStockApi(itemId, Number(warehouseId), qty);
-    const fresh = await fetchBatches();
-    const recs: StockMovement[] = [];
-    for (const b of fresh) {
-      const prev = before.get(b.id);
-      const delta = b.availableQty - (prev?.availableQty ?? b.availableQty);
-      if (delta !== 0) recs.push(makeMovement('Reserve', b.itemId, b.batchNumber, b.warehouseId, delta, 'Reservation', ''));
-    }
+    const [fresh, freshMovements] = await Promise.all([fetchBatches(), fetchStockMovements()]);
     setBatches(fresh);
-    logMovements(recs);
+    setMovements(freshMovements);
   };
 
   const releaseReservation: InventoryContextValue['releaseReservation'] = async (batchId, qty) => {
@@ -427,7 +348,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     if (move <= 0) return;
     const updated = await releaseReservationApi(batchId, move);
     setBatches((prev) => prev.map((b) => (b.id === batchId ? updated : b)));
-    logMovements([makeMovement('Reserve', target.itemId, target.batchNumber, target.warehouseId, move, 'Reservation released', '')]);
+    fetchStockMovements().then(setMovements).catch((e) => console.error('Failed to refresh stock movements', e));
   };
 
   const returnStock: InventoryContextValue['returnStock'] = async (batchId, qty) => {
@@ -437,51 +358,36 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     if (move <= 0) return;
     const updated = await returnStockApi(batchId, move);
     setBatches((prev) => prev.map((b) => (b.id === batchId ? updated : b)));
-    logMovements([makeMovement('Return', target.itemId, target.batchNumber, target.warehouseId, -move, 'Return to supplier', '')]);
+    fetchStockMovements().then(setMovements).catch((e) => console.error('Failed to refresh stock movements', e));
   };
 
   // A recall pulls the batch's usable stock out of circulation (into damaged) and
-  // flags it Recalled — logged as a write-off of the quantity removed.
+  // flags it Recalled — logged server-side as a write-off of the quantity removed.
   const recallBatch: InventoryContextValue['recallBatch'] = async (batchId) => {
-    const target = batches.find((b) => b.id === batchId);
-    if (!target) return;
-    const removed = target.availableQty + target.reservedQty;
     const updated = await recallBatchApi(batchId);
     setBatches((prev) => prev.map((b) => (b.id === batchId ? updated : b)));
-    if (removed > 0) {
-      logMovements([makeMovement('Write-off', target.itemId, target.batchNumber, target.warehouseId, -removed, 'Batch recall', '')]);
-    }
+    fetchStockMovements().then(setMovements).catch((e) => console.error('Failed to refresh stock movements', e));
   };
 
   // Writing off a batch moves its available + reserved quantity into damaged and marks it expired.
   const disposeBatch: InventoryContextValue['disposeBatch'] = async (batchId) => {
-    const target = batches.find((b) => b.id === batchId);
-    if (!target) return;
-    const removed = target.availableQty + target.reservedQty;
     const updated = await disposeBatchApi(batchId);
     setBatches((prev) => prev.map((b) => (b.id === batchId ? updated : b)));
-    if (removed > 0) {
-      logMovements([makeMovement('Write-off', target.itemId, target.batchNumber, target.warehouseId, -removed, 'Disposal / write-off', '')]);
-    }
+    fetchStockMovements().then(setMovements).catch((e) => console.error('Failed to refresh stock movements', e));
   };
 
-  // No backend endpoint exists for relocating a batch's bin - local-only for now.
-  const updateBatchBin: InventoryContextValue['updateBatchBin'] = (batchId, bin) => {
-    setBatches((prev) => prev.map((b) => (b.id === batchId ? { ...b, bin } : b)));
+  const updateBatchBin: InventoryContextValue['updateBatchBin'] = async (batchId, bin) => {
+    const updated = await updateBatchBinApi(batchId, bin);
+    setBatches((prev) => prev.map((b) => (b.id === batchId ? updated : b)));
   };
 
   // Moves whatever quantity is still pending inspection (receivedQty - availableQty -
   // reservedQty) into availableQty and marks the batch Released — the step that makes
   // GRN-received goods actually usable/reservable/sellable.
-  const releaseBatch: InventoryContextValue['releaseBatch'] = async (batchId, approvedBy) => {
-    const target = batches.find((b) => b.id === batchId);
-    if (!target) return;
-    const pending = target.receivedQty - target.availableQty - target.reservedQty;
+  const releaseBatch: InventoryContextValue['releaseBatch'] = async (batchId, _approvedBy) => {
     const updated = await releaseBatchApi(batchId);
     setBatches((prev) => prev.map((b) => (b.id === batchId ? updated : b)));
-    if (pending > 0) {
-      logMovements([makeMovement('In', target.itemId, target.batchNumber, target.warehouseId, pending, 'QC release', approvedBy)]);
-    }
+    fetchStockMovements().then(setMovements).catch((e) => console.error('Failed to refresh stock movements', e));
   };
 
   return (

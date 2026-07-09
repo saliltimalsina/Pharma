@@ -75,12 +75,17 @@ function DocumentsPanel({ vendor }: { vendor: Vendor }) {
           )}
           {vendor.documents.map((doc, i) => (
             <ListItem
-              key={`${doc.name}-${i}`}
+              key={doc.id ?? `${doc.name}-${i}`}
               divider
               secondaryAction={
                 <Stack direction="row" sx={{ alignItems: 'center', gap: 1 }}>
                   <StatusChip status={doc.status} />
-                  <IconButton edge="end" size="small" onClick={() => removeVendorDoc(vendor.id, i)}>
+                  <IconButton
+                    edge="end"
+                    size="small"
+                    disabled={!doc.id}
+                    onClick={() => doc.id && removeVendorDoc(vendor.id, doc.id)}
+                  >
                     <DeleteOutlineRoundedIcon fontSize="small" />
                   </IconButton>
                 </Stack>

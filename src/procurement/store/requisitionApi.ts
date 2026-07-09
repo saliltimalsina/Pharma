@@ -27,7 +27,7 @@ interface ApiRequisition {
   required_by_date: string | null;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   purpose_remarks: string;
-  status: 'draft' | 'submitted' | 'pending_approval' | 'approved' | 'rejected' | 'cancelled';
+  status: 'draft' | 'submitted' | 'pending_approval' | 'approved' | 'rejected' | 'cancelled' | 'completed';
   approved_by?: ApiLookup | null;
   approved_at: string | null;
   items?: ApiRequisitionItem[];
@@ -41,6 +41,7 @@ const STATUS_LABEL: Record<ApiRequisition['status'], RequisitionStatus> = {
   approved: 'Approved',
   rejected: 'Rejected',
   cancelled: 'Cancelled',
+  completed: 'Completed',
 };
 
 const PRIORITY_LABEL: Record<ApiRequisition['priority'], Priority> = {
@@ -107,5 +108,15 @@ export async function approveRequisitionApi(id: string): Promise<Requisition> {
 
 export async function rejectRequisitionApi(id: string, reason?: string): Promise<Requisition> {
   const data = await api.post<ApiRequisition>(`/material-requisitions/${id}/reject`, { reason });
+  return mapRequisition(data);
+}
+
+export async function submitRequisitionApi(id: string): Promise<Requisition> {
+  const data = await api.post<ApiRequisition>(`/material-requisitions/${id}/submit`);
+  return mapRequisition(data);
+}
+
+export async function completeRequisitionApi(id: string): Promise<Requisition> {
+  const data = await api.post<ApiRequisition>(`/material-requisitions/${id}/complete`);
   return mapRequisition(data);
 }

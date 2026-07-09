@@ -62,6 +62,7 @@ export interface Requisition {
 }
 
 export interface VendorDoc {
+  id?: string;
   name: string;
   status: 'Valid' | 'Expiring' | 'Expired' | 'Missing';
   expiry?: string;

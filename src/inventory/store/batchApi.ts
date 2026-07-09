@@ -110,6 +110,11 @@ export async function reserveStockApi(rawMaterialId: string, warehouseId: number
   await api.post('/stock/reserve', { rawMaterialId, warehouseId, qty });
 }
 
+export async function updateBatchBinApi(id: string, bin: string): Promise<Batch> {
+  const data = await api.patch<ApiBatch>(`/batches/${id}/bin`, { bin });
+  return mapBatch(data);
+}
+
 export interface StockOutLineInput {
   rawMaterialId: string;
   warehouseId: number;

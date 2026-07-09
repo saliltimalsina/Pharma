@@ -6,13 +6,23 @@ import {
   purchaseOrders as seedPurchaseOrders,
   grns as seedGrns,
 } from '../data/mockData';
-import { fetchVendors, fetchVendorCategories, fetchBusinessTypes, createVendor, updateVendorStatus } from './vendorApi';
+import {
+  fetchVendors,
+  fetchVendorCategories,
+  fetchBusinessTypes,
+  createVendor,
+  updateVendorStatus,
+  addVendorDocumentApi,
+  removeVendorDocumentApi,
+} from './vendorApi';
 import {
   fetchRequisitions,
   fetchDepartments,
   createRequisition,
   approveRequisitionApi,
   rejectRequisitionApi,
+  submitRequisitionApi,
+  completeRequisitionApi,
   type CreateRequisitionInput,
 } from './requisitionApi';
 import { fetchRfqs, createRfq, submitRfqQuote, awardRfqApi, inviteRfqVendorsApi } from './rfqApi';
@@ -25,6 +35,7 @@ import {
   cancelPurchaseOrderApi,
 } from './poApi';
 import { fetchGrns, createGrn, completeGrnApi, type GrnItemInput } from './grnApi';
+import { fetchProcurementEvents } from './procurementEventApi';
 import type {
   Requisition,
   Vendor,
@@ -74,14 +85,14 @@ interface ProcurementContextValue {
   grns: Grn[];
   procurementEvents: ProcurementEvent[];
   addRequisition: (input: NewRequisitionInput, submit: boolean) => Promise<string>;
-  submitRequisition: (id: string) => void;
+  submitRequisition: (id: string) => Promise<void>;
   approveRequisition: (id: string, approver: string) => Promise<void>;
   rejectRequisition: (id: string, approver: string, reason: string) => Promise<void>;
-  completeRequisition: (id: string) => void;
+  completeRequisition: (id: string) => Promise<void>;
   addVendor: (input: NewVendorInput) => Promise<string>;
   setVendorStatus: (vendorId: string, status: Vendor['status']) => Promise<void>;
-  addVendorDoc: (vendorId: string, doc: VendorDoc) => void;
-  removeVendorDoc: (vendorId: string, index: number) => void;
+  addVendorDoc: (vendorId: string, doc: VendorDoc) => Promise<void>;
+  removeVendorDoc: (vendorId: string, documentId: string) => Promise<void>;
   addRfq: (input: NewRfqInput, send: boolean) => Promise<string>;
   submitQuote: (rfqId: string, quote: QuoteInput) => Promise<void>;
   awardRfq: (id: string, vendorId: string) => Promise<void>;
@@ -157,6 +168,7 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
       fetchRfqs().then(setRfqs).catch((e) => console.error('Failed to load RFQs', e)),
       fetchPurchaseOrders().then(setPurchaseOrders).catch((e) => console.error('Failed to load purchase orders', e)),
       fetchGrns().then(setGrns).catch((e) => console.error('Failed to load GRNs', e)),
+      fetchProcurementEvents().then(setProcurementEvents).catch((e) => console.error('Failed to load procurement events', e)),
     ]).then(() => setLoading(false));
   }, []);
 
@@ -207,14 +219,10 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     return requisition.id;
   };
 
-  // No backend endpoint exists yet to submit an already-created draft
-  // (only create-time submit and approve/reject) - local-only for now.
-  const submitRequisition: ProcurementContextValue['submitRequisition'] = (id) => {
-    const req = requisitions.find((r) => r.id === id);
-    setRequisitions((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'Pending Approval' } : r)),
-    );
-    if (req) logEvent('Submitted', 'Requisition', req.requestNo, req.requestedBy);
+  const submitRequisition: ProcurementContextValue['submitRequisition'] = async (id) => {
+    const updated = await submitRequisitionApi(id);
+    setRequisitions((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    logEvent('Submitted', 'Requisition', updated.requestNo, updated.requestedBy);
   };
 
   const approveRequisition: ProcurementContextValue['approveRequisition'] = async (id, approver) => {
@@ -229,10 +237,10 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     logEvent('Rejected', 'Requisition', updated.requestNo, approver);
   };
 
-  const completeRequisition: ProcurementContextValue['completeRequisition'] = (id) => {
-    const req = requisitions.find((r) => r.id === id);
-    setRequisitions((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'Completed' } : r)));
-    if (req) logEvent('Completed', 'Requisition', req.requestNo, SYSTEM_ACTOR);
+  const completeRequisition: ProcurementContextValue['completeRequisition'] = async (id) => {
+    const updated = await completeRequisitionApi(id);
+    setRequisitions((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    logEvent('Completed', 'Requisition', updated.requestNo, SYSTEM_ACTOR);
   };
 
   const addVendor: ProcurementContextValue['addVendor'] = async (input) => {
@@ -265,23 +273,18 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     logEvent(status === 'Active' ? 'Approved' : status === 'Blacklisted' ? 'Rejected' : 'Submitted', 'Vendor', updated.name, SYSTEM_ACTOR);
   };
 
-  const addVendorDoc: ProcurementContextValue['addVendorDoc'] = (vendorId, doc) => {
-    const vendor = vendors.find((v) => v.id === vendorId);
-    setVendors((prev) =>
-      prev.map((v) => (v.id === vendorId ? { ...v, documents: [...v.documents, doc] } : v)),
-    );
-    if (vendor) logEvent('Document Added', 'Vendor', `${vendor.name} · ${doc.name}`, SYSTEM_ACTOR);
+  const addVendorDoc: ProcurementContextValue['addVendorDoc'] = async (vendorId, doc) => {
+    const updated = await addVendorDocumentApi(vendorId, doc);
+    setVendors((prev) => prev.map((v) => (v.id === vendorId ? updated : v)));
+    logEvent('Document Added', 'Vendor', `${updated.name} · ${doc.name}`, SYSTEM_ACTOR);
   };
 
-  const removeVendorDoc: ProcurementContextValue['removeVendorDoc'] = (vendorId, index) => {
+  const removeVendorDoc: ProcurementContextValue['removeVendorDoc'] = async (vendorId, documentId) => {
     const vendor = vendors.find((v) => v.id === vendorId);
-    const docName = vendor?.documents[index]?.name ?? '';
-    setVendors((prev) =>
-      prev.map((v) =>
-        v.id === vendorId ? { ...v, documents: v.documents.filter((_, i) => i !== index) } : v,
-      ),
-    );
-    if (vendor) logEvent('Document Removed', 'Vendor', `${vendor.name} · ${docName}`, SYSTEM_ACTOR);
+    const docName = vendor?.documents.find((d) => d.id === documentId)?.name ?? '';
+    const updated = await removeVendorDocumentApi(vendorId, documentId);
+    setVendors((prev) => prev.map((v) => (v.id === vendorId ? updated : v)));
+    logEvent('Document Removed', 'Vendor', `${updated.name} · ${docName}`, SYSTEM_ACTOR);
   };
 
   const addRfq: ProcurementContextValue['addRfq'] = async (input, send) => {
