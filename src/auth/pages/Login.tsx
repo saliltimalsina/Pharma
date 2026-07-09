@@ -28,20 +28,32 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   if (isAuthenticated) return <Navigate to="/" replace />;
 
-  const handleSubmit = () => {
-    if (login(email, password)) {
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setError('');
+    const result = await login(email, password);
+    setSubmitting(false);
+    if (result.ok) {
       navigate('/');
     } else {
-      setError('Enter both email and password.');
+      setError(result.message);
     }
   };
 
-  const handleDemo = () => {
-    loginDemo();
-    navigate('/');
+  const handleDemo = async () => {
+    setSubmitting(true);
+    setError('');
+    const result = await loginDemo();
+    setSubmitting(false);
+    if (result.ok) {
+      navigate('/');
+    } else {
+      setError(result.message);
+    }
   };
 
   return (
@@ -138,7 +150,7 @@ export default function Login() {
             </Link>
           </Stack>
 
-          <Button variant="contained" size="large" fullWidth onClick={handleSubmit}>
+          <Button variant="contained" size="large" fullWidth onClick={handleSubmit} disabled={submitting} loading={submitting}>
             Sign In
           </Button>
 
@@ -148,7 +160,15 @@ export default function Login() {
             </Typography>
           </Divider>
 
-          <Button variant="outlined" size="large" fullWidth onClick={handleDemo} sx={{ bgcolor: 'action.hover' }}>
+          <Button
+            variant="outlined"
+            size="large"
+            fullWidth
+            onClick={handleDemo}
+            disabled={submitting}
+            loading={submitting}
+            sx={{ bgcolor: 'action.hover' }}
+          >
             Try the demo
           </Button>
           <Typography variant="caption" sx={{ color: 'text.secondary', textAlign: 'center' }}>

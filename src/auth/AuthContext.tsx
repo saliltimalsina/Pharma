@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
+import { api, setToken, clearToken, ApiError } from '../shared/api/client';
 
 export interface AuthUser {
   name: string;
@@ -8,8 +9,8 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => boolean;
-  loginDemo: () => void;
+  login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; message: string }>;
+  loginDemo: () => Promise<{ ok: true } | { ok: false; message: string }>;
   logout: () => void;
 }
 
@@ -20,11 +21,20 @@ export const DEMO_USER: AuthUser = {
   email: 'salil.timalsina@gmail.com',
 };
 
+const DEMO_PASSWORD = 'password123';
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 function readStoredUser(): AuthUser | null {
   const raw = localStorage.getItem(STORAGE_KEY);
   return raw ? (JSON.parse(raw) as AuthUser) : null;
+}
+
+interface LoginResponse {
+  id: number;
+  name: string;
+  email: string;
+  token: string;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -35,18 +45,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   };
 
-  // Stub until the real backend login (divine-api /login) is wired in —
-  // any non-empty email/password succeeds so the flow is testable end to end.
-  const login = (email: string, password: string): boolean => {
-    if (!email.trim() || !password.trim()) return false;
-    setSession({ name: email.split('@')[0], email });
-    return true;
+  const login: AuthContextValue['login'] = async (email, password) => {
+    if (!email.trim() || !password.trim()) {
+      return { ok: false, message: 'Enter both email and password.' };
+    }
+    try {
+      const res = await api.post<LoginResponse>('/login', { email, password });
+      setToken(res.token);
+      setSession({ name: res.name, email: res.email });
+      return { ok: true };
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : 'Could not reach the server.';
+      return { ok: false, message };
+    }
   };
 
-  const loginDemo = () => setSession(DEMO_USER);
+  const loginDemo: AuthContextValue['loginDemo'] = () => login(DEMO_USER.email, DEMO_PASSWORD);
 
   const logout = () => {
     localStorage.removeItem(STORAGE_KEY);
+    clearToken();
     setUser(null);
   };
 
