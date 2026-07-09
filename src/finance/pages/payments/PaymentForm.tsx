@@ -9,12 +9,14 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Alert from '@mui/material/Alert';
 import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useFinance } from '../../store/FinanceStore';
+import { useProcurement } from '../../../procurement/store/ProcurementStore';
+import { ApiError } from '../../../shared/api/client';
 import { customers, customerById, invoiceBalance, billBalance } from '../../data/mockData';
-import { vendors } from '../../../procurement/data/mockData';
 import type { PaymentMethod, PaymentType } from '../../data/types';
 
 const types: PaymentType[] = ['Customer Payment', 'Supplier Payment', 'Advance Payment'];
@@ -25,6 +27,7 @@ export default function PaymentForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { invoices, supplierBills, addPayment, addAdvance } = useFinance();
+  const { vendors } = useProcurement();
 
   const openInvoices = useMemo(
     () => invoices.filter((i) => invoiceBalance(i) > 0 && !['Draft', 'Proforma', 'Cancelled'].includes(i.status)),
@@ -64,7 +67,7 @@ export default function PaymentForm() {
   // Advance-specific fields.
   const [advanceDirection, setAdvanceDirection] = useState<'Customer' | 'Supplier'>('Customer');
   const [advanceCustomerId, setAdvanceCustomerId] = useState(customers[0].id);
-  const [advanceVendorId, setAdvanceVendorId] = useState(vendors[0].id);
+  const [advanceVendorId, setAdvanceVendorId] = useState(vendors[0]?.id ?? '');
 
   const isCustomer = type === 'Customer Payment';
   const isAdvance = type === 'Advance Payment';
@@ -86,7 +89,10 @@ export default function PaymentForm() {
     ? amount > 0 && advancePartyName !== ''
     : amount > 0 && (isCustomer ? !!selectedInvoice : !!selectedBill);
 
-  const handleSubmit = () => {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
     if (isAdvance) {
       addAdvance({
         date,
@@ -100,20 +106,27 @@ export default function PaymentForm() {
       navigate('/finance/advances');
       return;
     }
-    const id = addPayment({
-      date,
-      type,
-      partyName,
-      invoiceOrBillRef: isCustomer ? invoiceRef : billRef,
-      method,
-      outstandingBalance,
-      amount,
-      bank,
-      referenceNumber: '',
-      transactionId,
-      notes,
-    });
-    navigate(`/finance/payments/${id}`);
+    setSubmitting(true);
+    setError('');
+    try {
+      const id = await addPayment({
+        date,
+        type,
+        partyName,
+        invoiceOrBillRef: isCustomer ? invoiceRef : billRef,
+        method,
+        outstandingBalance,
+        amount,
+        bank,
+        referenceNumber: '',
+        transactionId,
+        notes,
+      });
+      navigate(`/finance/payments/${id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not record the payment.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -123,6 +136,12 @@ export default function PaymentForm() {
         subtitle="Allocate an incoming or outgoing payment, or bank an unallocated advance"
         actions={<Button onClick={() => navigate('/finance/payments')}>Cancel</Button>}
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Stack spacing={2}>
         <Card variant="outlined">
@@ -253,7 +272,7 @@ export default function PaymentForm() {
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
           <Button variant="outlined" onClick={() => navigate('/finance/payments')}>Cancel</Button>
-          <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>
+          <Button variant="contained" disabled={!canSubmit || submitting} loading={submitting} onClick={handleSubmit}>
             {isAdvance ? 'Record Advance' : 'Record Payment'}
           </Button>
         </Stack>

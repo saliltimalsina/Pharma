@@ -17,12 +17,14 @@ import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
+import Alert from '@mui/material/Alert';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useFinance } from '../../store/FinanceStore';
+import { ApiError } from '../../../shared/api/client';
 import { customers, customerById } from '../../data/mockData';
 import type { InvoiceLine, PaymentMethod } from '../../data/types';
 
@@ -75,28 +77,39 @@ export default function InvoiceForm() {
 
   const canSubmit = lines.some((l) => l.product.trim() !== '');
 
-  const save = (status: 'Draft' | 'Sent' | 'Proforma') => {
-    const id = addInvoice(
-      {
-        customerId,
-        invoiceDate: new Date().toISOString().slice(0, 10),
-        dueDate,
-        salesperson,
-        referenceNumber,
-        paymentMethod,
-        amount: grandTotal,
-        lines: lines.map((l) => ({
-          product: l.product,
-          batchNumber: l.batchNumber,
-          quantity: l.quantity,
-          unitPrice: l.unitPrice,
-          discount: l.discount,
-          vat: l.vat,
-        })),
-      },
-      status,
-    );
-    navigate(`/finance/invoices/${id}`);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async (status: 'Draft' | 'Sent' | 'Proforma') => {
+    setSubmitting(true);
+    setError('');
+    try {
+      const id = await addInvoice(
+        {
+          customerId,
+          invoiceDate: new Date().toISOString().slice(0, 10),
+          dueDate,
+          salesperson,
+          referenceNumber,
+          paymentMethod,
+          amount: grandTotal,
+          shippingAmount: shipping,
+          lines: lines.map((l) => ({
+            product: l.product,
+            batchNumber: l.batchNumber,
+            quantity: l.quantity,
+            unitPrice: l.unitPrice,
+            discount: l.discount,
+            vat: l.vat,
+          })),
+        },
+        status,
+      );
+      navigate(`/finance/invoices/${id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not save the invoice.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -106,6 +119,12 @@ export default function InvoiceForm() {
         subtitle="Bill a customer for products sold"
         actions={<Button onClick={() => navigate('/finance/invoices')}>Cancel</Button>}
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Stack spacing={2}>
         <Card variant="outlined">
@@ -240,9 +259,9 @@ export default function InvoiceForm() {
           Draft = save without sending &middot; Proforma = a quote, not a bill yet &middot; Send = the customer owes this now
         </Typography>
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
-          <Button variant="outlined" disabled={!canSubmit} onClick={() => save('Draft')}>Save as Draft</Button>
-          <Button variant="outlined" disabled={!canSubmit} onClick={() => save('Proforma')}>Save as Proforma</Button>
-          <Button variant="contained" disabled={!canSubmit} onClick={() => save('Sent')}>Send Invoice</Button>
+          <Button variant="outlined" disabled={!canSubmit || submitting} loading={submitting} onClick={() => save('Draft')}>Save as Draft</Button>
+          <Button variant="outlined" disabled={!canSubmit || submitting} loading={submitting} onClick={() => save('Proforma')}>Save as Proforma</Button>
+          <Button variant="contained" disabled={!canSubmit || submitting} loading={submitting} onClick={() => save('Sent')}>Send Invoice</Button>
         </Stack>
       </Stack>
     </Box>

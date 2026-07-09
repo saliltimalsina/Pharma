@@ -9,10 +9,12 @@ import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Alert from '@mui/material/Alert';
 import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useFinance } from '../../store/FinanceStore';
+import { ApiError } from '../../../shared/api/client';
 import { billBalance } from '../../data/mockData';
 
 export default function DebitNoteForm() {
@@ -34,17 +36,28 @@ export default function DebitNoteForm() {
   const outstanding = selected ? billBalance(selected) : 0;
   const canSubmit = !!selected && amount > 0 && amount <= outstanding;
 
-  const handleSubmit = () => {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
     if (!selected) return;
-    addDebitNote({
-      date,
-      vendorId: selected.vendorId,
-      vendorName: selected.vendorName,
-      billNo: selected.billNo,
-      reason,
-      amount,
-    });
-    navigate('/finance/debit-notes');
+    setSubmitting(true);
+    setError('');
+    try {
+      await addDebitNote({
+        date,
+        vendorId: selected.vendorId,
+        billId: selected.id,
+        vendorName: selected.vendorName,
+        billNo: selected.billNo,
+        reason,
+        amount,
+      });
+      navigate('/finance/debit-notes');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not issue the debit note.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -54,6 +67,12 @@ export default function DebitNoteForm() {
         subtitle="Reduce a supplier bill's outstanding balance and reverse the purchase accrual"
         actions={<Button onClick={() => navigate('/finance/debit-notes')}>Cancel</Button>}
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Stack spacing={2}>
         <Card variant="outlined">
@@ -98,7 +117,7 @@ export default function DebitNoteForm() {
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
           <Button variant="outlined" onClick={() => navigate('/finance/debit-notes')}>Cancel</Button>
-          <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>Issue Debit Note</Button>
+          <Button variant="contained" disabled={!canSubmit || submitting} loading={submitting} onClick={handleSubmit}>Issue Debit Note</Button>
         </Stack>
       </Stack>
     </Box>

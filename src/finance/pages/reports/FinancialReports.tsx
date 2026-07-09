@@ -16,7 +16,7 @@ import DetailTabs from '../../components/DetailTabs';
 import { useFinance } from '../../store/FinanceStore';
 import { exportToCsv } from '../../../shared/exportCsv';
 import { customers, customerById, invoiceBalance, billBalance } from '../../data/mockData';
-import { vendors } from '../../../procurement/data/mockData';
+import { useProcurement } from '../../../procurement/store/ProcurementStore';
 
 function ExportBar({ onExport }: { onExport: () => void }) {
   return (
@@ -37,6 +37,7 @@ function AnalyticsRow({ label, value }: { label: string; value: string }) {
 
 export default function FinancialReports() {
   const { invoices, supplierBills, chartOfAccounts, payments, journalEntries } = useFinance();
+  const { vendors } = useProcurement();
 
   const revenue = chartOfAccounts.find((a) => a.code === '4000')?.balance ?? 0;
   const cogs = chartOfAccounts.find((a) => a.code === '5000')?.balance ?? 0;

@@ -13,7 +13,7 @@ import FilterSelect from '../../components/FilterSelect';
 import StatusChip from '../../components/StatusChip';
 import FinanceDataGrid from '../../components/FinanceDataGrid';
 import { useFinance } from '../../store/FinanceStore';
-import { vendors } from '../../../procurement/data/mockData';
+import { useProcurement } from '../../../procurement/store/ProcurementStore';
 import type { BillStatus } from '../../data/types';
 
 const statuses: BillStatus[] = ['Draft', 'Pending Verification', 'Approved', 'Partially Paid', 'Paid', 'Cancelled'];
@@ -44,6 +44,7 @@ export default function BillList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { supplierBills } = useFinance();
+  const { vendors } = useProcurement();
   const [vendor, setVendor] = useState('All');
   const [status, setStatus] = useState('All');
   const [search, setSearch] = useState(() => searchParams.get('search') ?? '');

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import {
   invoices as seedInvoices,
   supplierBills as seedBills,
@@ -12,7 +12,14 @@ import {
   advances as seedAdvances,
   advanceApplications as seedAdvanceApplications,
   financeEvents as seedFinanceEvents,
+  customers as mockCustomers,
 } from '../data/mockData';
+import { fetchCustomers } from './customerApi';
+import { fetchInvoices, createInvoice, convertProformaApi, type CreateInvoiceInput } from './invoiceApi';
+import { fetchBills, createBill, approveBillApi } from './billApi';
+import { fetchPayments, createPayment, type CreatePaymentInput } from './paymentApi';
+import { fetchCreditNotes, createCreditNote } from './creditNoteApi';
+import { fetchDebitNotes, createDebitNote } from './debitNoteApi';
 import type {
   Invoice,
   SupplierBill,
@@ -27,15 +34,29 @@ import type {
   Advance,
   AdvanceApplication,
   FinanceEvent,
+  PaymentMethod,
+  PaymentType,
 } from '../data/types';
 
 type NewInvoiceStatus = 'Draft' | 'Sent' | 'Proforma';
-type NewInvoiceInput = Omit<Invoice, 'id' | 'invoiceNo' | 'status' | 'paid'> & { lines: InvoiceLine[] };
-type NewBillInput = Omit<SupplierBill, 'id' | 'billNo' | 'status' | 'paid' | 'poMatch' | 'grnMatch' | 'invoiceMatch' | 'difference'>;
+type NewInvoiceInput = Omit<Invoice, 'id' | 'invoiceNo' | 'status' | 'paid'> & {
+  lines: InvoiceLine[];
+  shippingAmount?: number;
+};
+// vendorName/poNumber/grnNumber labels aren't sent - poId/grnId (real backend ids) are,
+// and the backend resolves + returns the full nested record.
+type NewBillInput = {
+  vendorId: string;
+  poId?: string;
+  grnId?: string;
+  invoiceDate: string;
+  dueDate: string;
+  lines: SupplierBill['lines'];
+};
 type NewPaymentInput = Omit<Payment, 'id' | 'paymentNo' | 'remainingBalance' | 'status'>;
 type NewJournalInput = Omit<JournalEntry, 'id' | 'journalNo' | 'status'>;
-type NewCreditNoteInput = Omit<CreditNote, 'id' | 'creditNoteNo' | 'status'>;
-type NewDebitNoteInput = Omit<DebitNote, 'id' | 'debitNoteNo' | 'status'>;
+type NewCreditNoteInput = Omit<CreditNote, 'id' | 'creditNoteNo' | 'status'> & { invoiceId: string };
+type NewDebitNoteInput = Omit<DebitNote, 'id' | 'debitNoteNo' | 'status'> & { billId: string };
 type NewAdvanceInput = Omit<Advance, 'id' | 'advanceNo' | 'allocated'>;
 
 // Actor recorded against every audit-trail entry.
@@ -55,14 +76,14 @@ interface FinanceContextValue {
   advances: Advance[];
   advanceApplications: AdvanceApplication[];
   financeEvents: FinanceEvent[];
-  addInvoice: (input: NewInvoiceInput, status: NewInvoiceStatus) => string;
-  convertProforma: (id: string) => void;
-  addBill: (input: NewBillInput) => string;
-  approveBill: (id: string) => void;
-  addPayment: (input: NewPaymentInput) => string;
+  addInvoice: (input: NewInvoiceInput, status: NewInvoiceStatus) => Promise<string>;
+  convertProforma: (id: string) => Promise<void>;
+  addBill: (input: NewBillInput) => Promise<string>;
+  approveBill: (id: string) => Promise<void>;
+  addPayment: (input: NewPaymentInput) => Promise<string>;
   addJournalEntry: (input: NewJournalInput) => string;
-  addCreditNote: (input: NewCreditNoteInput) => string;
-  addDebitNote: (input: NewDebitNoteInput) => string;
+  addCreditNote: (input: NewCreditNoteInput) => Promise<string>;
+  addDebitNote: (input: NewDebitNoteInput) => Promise<string>;
   addAdvance: (input: NewAdvanceInput) => string;
   applyAdvance: (advanceId: string, targetRef: string, amount: number) => void;
   toggleReconciled: (txnId: string) => void;
@@ -70,13 +91,8 @@ interface FinanceContextValue {
 
 const FinanceContext = createContext<FinanceContextValue | null>(null);
 
-let invoiceSeq = seedInvoices.length;
-let billSeq = seedBills.length;
-let paymentSeq = seedPayments.length;
 let journalSeq = seedJournalEntries.length;
 let bankTxnSeq = seedBankTransactions.length;
-let creditNoteSeq = seedCreditNotes.length;
-let debitNoteSeq = seedDebitNotes.length;
 let advanceSeq = seedAdvances.length;
 let advanceAppSeq = seedAdvanceApplications.length;
 let eventSeq = seedFinanceEvents.length;
@@ -102,6 +118,31 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [advanceApplications, setAdvanceApplications] = useState<AdvanceApplication[]>(seedAdvanceApplications);
   const [financeEvents, setFinanceEvents] = useState<FinanceEvent[]>(seedFinanceEvents);
 
+  useEffect(() => {
+    // `customers` has no create route (read-only reference data) - mutated in
+    // place here rather than lifted into context, same as `warehouses`/`mockItems`,
+    // so pages that already do `import { customers } from '../data/mockData'`
+    // keep working unchanged and see the real rows once this resolves.
+    fetchCustomers()
+      .then((rows) => mockCustomers.splice(0, mockCustomers.length, ...rows))
+      .catch((e) => console.error('Failed to load customers', e));
+    fetchInvoices()
+      .then(setInvoices)
+      .catch((e) => console.error('Failed to load invoices', e));
+    fetchBills()
+      .then(setSupplierBills)
+      .catch((e) => console.error('Failed to load supplier bills', e));
+    fetchPayments()
+      .then(setPayments)
+      .catch((e) => console.error('Failed to load payments', e));
+    fetchCreditNotes()
+      .then(setCreditNotes)
+      .catch((e) => console.error('Failed to load credit notes', e));
+    fetchDebitNotes()
+      .then(setDebitNotes)
+      .catch((e) => console.error('Failed to load debit notes', e));
+  }, []);
+
   // Append an audit-trail entry. The event object is built OUTSIDE the state
   // updater (counter incremented here, not inside the updater) to stay StrictMode-safe.
   const logEvent = (type: string, entity: string, ref: string, date: string = today()) => {
@@ -117,79 +158,119 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     setFinanceEvents((prev) => [event, ...prev]);
   };
 
-  const addInvoice: FinanceContextValue['addInvoice'] = (input, status) => {
-    invoiceSeq += 1;
-    const id = `INV-${String(invoiceSeq).padStart(3, '0')}`;
-    const invoiceNo = `INV-2026-10${43 + (invoiceSeq - seedInvoices.length)}`;
-    const invoice: Invoice = { ...input, id, invoiceNo, status, paid: 0, credited: 0 };
+  const INVOICE_STATUS_VALUE: Record<NewInvoiceStatus, CreateInvoiceInput['status']> = {
+    Draft: 'draft',
+    Sent: 'sent',
+    Proforma: 'proforma',
+  };
+  const METHOD_VALUE: Record<PaymentMethod, string> = {
+    Cash: 'cash',
+    'Bank Transfer': 'bank_transfer',
+    Cheque: 'cheque',
+    'Credit Card': 'credit_card',
+    'Online Payment': 'online_payment',
+    'Mobile Wallet': 'mobile_wallet',
+  };
+
+  const addInvoice: FinanceContextValue['addInvoice'] = async (input, status) => {
+    const invoice = await createInvoice({
+      customerId: Number(input.customerId),
+      invoiceDate: input.invoiceDate,
+      dueDate: input.dueDate,
+      status: INVOICE_STATUS_VALUE[status],
+      salesperson: input.salesperson,
+      referenceNumber: input.referenceNumber,
+      paymentMethod: METHOD_VALUE[input.paymentMethod],
+      shippingAmount: input.shippingAmount,
+      lines: input.lines.map((l) => ({
+        product: l.product,
+        batchNumber: l.batchNumber,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        discountPercent: l.discount,
+        vatPercent: l.vat,
+      })),
+    });
     setInvoices((prev) => [invoice, ...prev]);
-    logEvent('Created', status === 'Proforma' ? 'Proforma Invoice' : 'Invoice', invoiceNo, input.invoiceDate);
-    return id;
+    logEvent('Created', status === 'Proforma' ? 'Proforma Invoice' : 'Invoice', invoice.invoiceNo, input.invoiceDate);
+    return invoice.id;
   };
 
   // Turn a proforma invoice into a real Sent invoice so it begins counting toward AR.
-  const convertProforma: FinanceContextValue['convertProforma'] = (id) => {
-    const target = invoices.find((i) => i.id === id);
-    setInvoices((prev) => prev.map((i) => (i.id === id && i.status === 'Proforma' ? { ...i, status: 'Sent' } : i)));
-    if (target) logEvent('Converted', 'Invoice', target.invoiceNo);
+  const convertProforma: FinanceContextValue['convertProforma'] = async (id) => {
+    const updated = await convertProformaApi(id);
+    setInvoices((prev) => prev.map((i) => (i.id === id ? updated : i)));
+    logEvent('Converted', 'Invoice', updated.invoiceNo);
   };
 
-  const addBill: FinanceContextValue['addBill'] = (input) => {
-    billSeq += 1;
-    const id = `BILL-${String(billSeq).padStart(3, '0')}`;
-    const billNo = `BILL-2026-05${13 + (billSeq - seedBills.length)}`;
-    const bill: SupplierBill = {
-      ...input,
-      id,
-      billNo,
-      status: 'Pending Verification',
-      paid: 0,
-      poMatch: input.poNumber !== '',
-      grnMatch: input.grnNumber !== '' && input.grnNumber !== '—',
-      invoiceMatch: true,
-      difference: 0,
-      credited: 0,
-    };
+  const addBill: FinanceContextValue['addBill'] = async (input) => {
+    const bill = await createBill({
+      vendorId: Number(input.vendorId),
+      purchaseOrderId: input.poId ? Number(input.poId) : undefined,
+      grnId: input.grnId ? Number(input.grnId) : undefined,
+      invoiceDate: input.invoiceDate,
+      dueDate: input.dueDate,
+      lines: input.lines.map((l) => ({
+        product: l.product,
+        batchNumber: l.batchNumber,
+        quantity: l.quantity,
+        unitCost: l.unitCost,
+        vatPercent: l.vat,
+      })),
+    });
     setSupplierBills((prev) => [bill, ...prev]);
-    logEvent('Created', 'Bill', billNo, input.invoiceDate);
-    return id;
+    logEvent('Created', 'Bill', bill.billNo, input.invoiceDate);
+    return bill.id;
   };
 
-  const approveBill: FinanceContextValue['approveBill'] = (id) => {
-    const target = supplierBills.find((b) => b.id === id);
-    setSupplierBills((prev) => prev.map((b) => (b.id === id ? { ...b, status: 'Approved' } : b)));
-    if (target) logEvent('Approved', 'Bill', target.billNo);
+  const approveBill: FinanceContextValue['approveBill'] = async (id) => {
+    const updated = await approveBillApi(id);
+    setSupplierBills((prev) => prev.map((b) => (b.id === id ? updated : b)));
+    logEvent('Approved', 'Bill', updated.billNo);
   };
 
-  const addPayment: FinanceContextValue['addPayment'] = (input) => {
-    paymentSeq += 1;
-    const id = `PAY-${String(paymentSeq).padStart(3, '0')}`;
-    const paymentNo = `PAY-2026-33${paymentSeq}`;
-    const remainingBalance = input.outstandingBalance - input.amount;
-    const payment: Payment = { ...input, id, paymentNo, remainingBalance, status: 'Completed' };
+  const PAYMENT_TYPE_VALUE: Record<PaymentType, CreatePaymentInput['type']> = {
+    'Customer Payment': 'customer_payment',
+    'Supplier Payment': 'supplier_payment',
+    'Advance Payment': 'advance_payment',
+    Refund: 'refund',
+    Adjustment: 'adjustment',
+  };
+  const PAYMENT_METHOD_VALUE: Record<PaymentMethod, CreatePaymentInput['method']> = {
+    Cash: 'cash',
+    'Bank Transfer': 'bank_transfer',
+    Cheque: 'cheque',
+    'Credit Card': 'credit_card',
+    'Online Payment': 'online_payment',
+    'Mobile Wallet': 'mobile_wallet',
+  };
+
+  const addPayment: FinanceContextValue['addPayment'] = async (input) => {
+    const payment = await createPayment({
+      date: input.date,
+      type: PAYMENT_TYPE_VALUE[input.type],
+      method: PAYMENT_METHOD_VALUE[input.method],
+      amount: input.amount,
+      partyName: input.partyName,
+      invoiceOrBillRef: input.invoiceOrBillRef,
+      outstandingBalance: input.outstandingBalance,
+      bank: input.bank,
+      referenceNumber: input.referenceNumber,
+      transactionId: input.transactionId,
+      notes: input.notes,
+    });
     setPayments((prev) => [payment, ...prev]);
 
+    // The backend settles the target invoice/bill server-side - refresh so the
+    // new paid amount/status shows up without a full page reload.
     if (input.type === 'Customer Payment') {
-      setInvoices((prev) =>
-        prev.map((inv) => {
-          if (inv.invoiceNo !== input.invoiceOrBillRef) return inv;
-          const paid = inv.paid + input.amount;
-          const settled = paid + (inv.credited ?? 0);
-          return { ...inv, paid, status: settled >= inv.amount ? 'Paid' : 'Partially Paid' };
-        }),
-      );
+      fetchInvoices().then(setInvoices).catch((e) => console.error('Failed to refresh invoices', e));
     } else if (input.type === 'Supplier Payment') {
-      setSupplierBills((prev) =>
-        prev.map((bill) => {
-          if (bill.billNo !== input.invoiceOrBillRef) return bill;
-          const paid = bill.paid + input.amount;
-          const settled = paid + (bill.credited ?? 0);
-          return { ...bill, paid, status: settled >= bill.amount ? 'Paid' : 'Partially Paid' };
-        }),
-      );
+      fetchBills().then(setSupplierBills).catch((e) => console.error('Failed to refresh supplier bills', e));
     }
 
-    // Record the cash movement.
+    // Record the cash movement - no backend ledger exists for this, so it stays
+    // a local-only simulation layered on top of the real payment record above.
     const inflow = input.type === 'Customer Payment' || input.type === 'Advance Payment';
     const outflow = input.type === 'Supplier Payment' || input.type === 'Refund';
     if (input.method === 'Cash' && (inflow || outflow)) {
@@ -220,8 +301,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         );
       }
     }
-    logEvent('Payment', 'Payment', paymentNo, input.date);
-    return id;
+    logEvent('Payment', 'Payment', payment.paymentNo, input.date);
+    return payment.id;
   };
 
   // Posting a journal entry moves the two affected chart-of-account balances.
@@ -244,23 +325,21 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   // Customer credit note: neutralises part of a target invoice's outstanding balance and
   // posts the reverse of the original sale (Accounts Receivable down, Sales Revenue down).
-  const addCreditNote: FinanceContextValue['addCreditNote'] = (input) => {
-    creditNoteSeq += 1;
-    const id = `CN-${String(creditNoteSeq).padStart(3, '0')}`;
-    const creditNoteNo = `CN-2026-${String(creditNoteSeq).padStart(3, '0')}`;
-    const note: CreditNote = { ...input, id, creditNoteNo, status: 'Issued' };
+  const addCreditNote: FinanceContextValue['addCreditNote'] = async (input) => {
+    const note = await createCreditNote({
+      date: input.date,
+      customerId: Number(input.customerId),
+      invoiceId: Number(input.invoiceId),
+      reason: input.reason,
+      amount: input.amount,
+    });
     setCreditNotes((prev) => [note, ...prev]);
 
-    setInvoices((prev) =>
-      prev.map((inv) => {
-        if (inv.invoiceNo !== input.invoiceNo) return inv;
-        const credited = (inv.credited ?? 0) + input.amount;
-        const settled = inv.paid + credited;
-        const status = settled >= inv.amount && inv.amount > 0 ? 'Paid' : inv.status;
-        return { ...inv, credited, status };
-      }),
-    );
-    // Reverse ledger effect: reduce AR (1200, asset -> credit) and Sales Revenue (4000 -> debit).
+    // The backend already reconciled the target invoice's credited/status server-side.
+    fetchInvoices().then(setInvoices).catch((e) => console.error('Failed to refresh invoices', e));
+
+    // Reverse ledger effect: reduce AR (1200, asset -> credit) and Sales Revenue (4000 ->
+    // debit). No backend chart of accounts exists, so this stays local-only.
     setChartOfAccounts((prev) =>
       prev.map((acc) => {
         if (acc.code === '1200') return applyEntry(acc, false, input.amount);
@@ -268,29 +347,27 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         return acc;
       }),
     );
-    logEvent('Credit Note', 'Credit Note', creditNoteNo, input.date);
-    return id;
+    logEvent('Credit Note', 'Credit Note', note.creditNoteNo, input.date);
+    return note.id;
   };
 
   // Supplier debit note: neutralises part of a target bill's outstanding balance and
   // posts the reverse of the original purchase accrual (Accounts Payable down, COGS down).
-  const addDebitNote: FinanceContextValue['addDebitNote'] = (input) => {
-    debitNoteSeq += 1;
-    const id = `DN-${String(debitNoteSeq).padStart(3, '0')}`;
-    const debitNoteNo = `DN-2026-${String(debitNoteSeq).padStart(3, '0')}`;
-    const note: DebitNote = { ...input, id, debitNoteNo, status: 'Issued' };
+  const addDebitNote: FinanceContextValue['addDebitNote'] = async (input) => {
+    const note = await createDebitNote({
+      date: input.date,
+      vendorId: Number(input.vendorId),
+      supplierBillId: Number(input.billId),
+      reason: input.reason,
+      amount: input.amount,
+    });
     setDebitNotes((prev) => [note, ...prev]);
 
-    setSupplierBills((prev) =>
-      prev.map((bill) => {
-        if (bill.billNo !== input.billNo) return bill;
-        const credited = (bill.credited ?? 0) + input.amount;
-        const settled = bill.paid + credited;
-        const status = settled >= bill.amount && bill.amount > 0 ? 'Paid' : bill.status;
-        return { ...bill, credited, status };
-      }),
-    );
+    // The backend already reconciled the target bill's credited/status server-side.
+    fetchBills().then(setSupplierBills).catch((e) => console.error('Failed to refresh supplier bills', e));
+
     // Reverse ledger effect: reduce AP (2000, liability -> debit) and COGS (5000 -> credit).
+    // No backend chart of accounts exists, so this stays local-only.
     setChartOfAccounts((prev) =>
       prev.map((acc) => {
         if (acc.code === '2000') return applyEntry(acc, true, input.amount);
@@ -298,8 +375,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         return acc;
       }),
     );
-    logEvent('Debit Note', 'Debit Note', debitNoteNo, input.date);
-    return id;
+    logEvent('Debit Note', 'Debit Note', note.debitNoteNo, input.date);
+    return note.id;
   };
 
   // Record an advance receipt/payment as an unallocated credit held for a party.

@@ -15,33 +15,39 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
+import Alert from '@mui/material/Alert';
 import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useFinance } from '../../store/FinanceStore';
-import { purchaseOrders, grns } from '../../../procurement/data/mockData';
+import { useProcurement } from '../../../procurement/store/ProcurementStore';
+import { useInventory } from '../../../inventory/store/InventoryStore';
+import { ApiError } from '../../../shared/api/client';
 
 export default function BillForm() {
   const navigate = useNavigate();
   const { addBill } = useFinance();
+  const { purchaseOrders, grns } = useProcurement();
+  const { items: catalogItems } = useInventory();
+  const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
 
-  const [poNumber, setPoNumber] = useState(purchaseOrders[0].poNumber);
-  const [grnNumber, setGrnNumber] = useState('—');
+  const [poId, setPoId] = useState(purchaseOrders[0]?.id ?? '');
+  const [grnId, setGrnId] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState('');
 
-  const po = purchaseOrders.find((p) => p.poNumber === poNumber) ?? purchaseOrders[0];
-  const relatedGrns = grns.filter((g) => g.poNumber === po.poNumber);
+  const po = purchaseOrders.find((p) => p.id === poId);
+  const relatedGrns = po ? grns.filter((g) => g.poNumber === po.poNumber) : [];
 
   const lines = useMemo(
-    () => po.items.map((it) => ({
-      product: it.product,
+    () => (po ? po.items.map((it) => ({
+      product: materialName(it.product),
       batchNumber: relatedGrns[0]?.items[0]?.batchNumber ?? '—',
       quantity: it.qty,
       unitCost: it.unitPrice,
       vat: it.vat,
-    })),
-    [po, relatedGrns],
+    })) : []),
+    [po, relatedGrns, catalogItems],
   );
 
   const amount = lines.reduce((sum, l) => {
@@ -49,19 +55,43 @@ export default function BillForm() {
     return sum + base + (base * l.vat) / 100;
   }, 0);
 
-  const handleSubmit = () => {
-    const id = addBill({
-      vendorId: po.vendorId,
-      vendorName: po.vendorName,
-      poNumber: po.poNumber,
-      grnNumber,
-      invoiceDate,
-      dueDate,
-      amount,
-      lines,
-    });
-    navigate(`/finance/bills/${id}`);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    if (!po) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const id = await addBill({
+        vendorId: po.vendorId,
+        poId: po.id,
+        grnId: grnId || undefined,
+        invoiceDate,
+        dueDate,
+        lines,
+      });
+      navigate(`/finance/bills/${id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not record the bill.');
+      setSubmitting(false);
+    }
   };
+
+  if (!po) {
+    return (
+      <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1400px' } }}>
+        <PageHeader
+          title="Record Supplier Bill"
+          subtitle="Match against a purchase order and goods receipt"
+          actions={<Button onClick={() => navigate('/finance/bills')}>Cancel</Button>}
+        />
+        <Alert severity="info">
+          No purchase orders available yet — a supplier bill needs one to match against.
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1400px' } }}>
@@ -71,29 +101,35 @@ export default function BillForm() {
         actions={<Button onClick={() => navigate('/finance/bills')}>Cancel</Button>}
       />
 
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
       <Stack spacing={2}>
         <Card variant="outlined">
           <CardHeader title="General" slotProps={{ title: { variant: 'subtitle2' } }} />
           <CardContent sx={{ pt: 0 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth label="Bill Number" value="BILL-2026-0513 (auto)" disabled />
+                <FormField fullWidth label="Bill Number" value="Auto-generated" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormField fullWidth label="Supplier" value={po.vendorName} disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="Purchase Order" value={poNumber} onChange={(e) => { setPoNumber(e.target.value); setGrnNumber('—'); }}>
+                <FormSelectField fullWidth label="Purchase Order" value={poId} onChange={(e) => { setPoId(e.target.value); setGrnId(''); }}>
                   {purchaseOrders.map((p) => (
-                    <MenuItem key={p.id} value={p.poNumber}>{p.poNumber} — {p.vendorName}</MenuItem>
+                    <MenuItem key={p.id} value={p.id}>{p.poNumber} — {p.vendorName}</MenuItem>
                   ))}
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="GRN Reference" value={grnNumber} onChange={(e) => setGrnNumber(e.target.value)}>
-                  <MenuItem value="—">Not yet received</MenuItem>
+                <FormSelectField fullWidth label="GRN Reference" value={grnId} onChange={(e) => setGrnId(e.target.value)}>
+                  <MenuItem value="">Not yet received</MenuItem>
                   {relatedGrns.map((g) => (
-                    <MenuItem key={g.id} value={g.grnNumber}>{g.grnNumber}</MenuItem>
+                    <MenuItem key={g.id} value={g.id}>{g.grnNumber}</MenuItem>
                   ))}
                 </FormSelectField>
               </Grid>
@@ -147,7 +183,7 @@ export default function BillForm() {
               <CardHeader title="Verification" slotProps={{ title: { variant: 'subtitle2' } }} />
               <CardContent sx={{ pt: 0 }}>
                 <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
-                  <Chip size="small" color={grnNumber !== '—' ? 'success' : 'default'} label={grnNumber !== '—' ? 'GRN Matched' : 'Awaiting GRN'} />
+                  <Chip size="small" color={grnId !== '' ? 'success' : 'default'} label={grnId !== '' ? 'GRN Matched' : 'Awaiting GRN'} />
                 </Stack>
               </CardContent>
             </Card>
@@ -167,7 +203,7 @@ export default function BillForm() {
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
           <Button variant="outlined" onClick={() => navigate('/finance/bills')}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit}>Record Bill</Button>
+          <Button variant="contained" disabled={submitting} loading={submitting} onClick={handleSubmit}>Record Bill</Button>
         </Stack>
       </Stack>
     </Box>
