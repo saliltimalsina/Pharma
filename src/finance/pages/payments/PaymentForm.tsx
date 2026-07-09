@@ -91,8 +91,12 @@ export default function PaymentForm() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleSubmit = async () => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     if (isAdvance) {
       addAdvance({
         date,
@@ -124,7 +128,13 @@ export default function PaymentForm() {
       });
       navigate(`/finance/payments/${id}`);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not record the payment.');
+      if (e instanceof ApiError && e.errors) {
+        const fe: Record<string, string> = {};
+        for (const k in e.errors) fe[k] = e.errors[k][0];
+        setFieldErrors(fe);
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not record the payment.');
+      }
       setSubmitting(false);
     }
   };
@@ -152,7 +162,16 @@ export default function PaymentForm() {
                 <FormField fullWidth label="Payment Number" value="PAY-2026-3302 (auto)" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth type="date" label="Date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <FormField
+                  fullWidth
+                  required
+                  type="date"
+                  label="Date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  error={!!fieldErrors.date || (submitted && date === '')}
+                  helperText={fieldErrors.date || (submitted && date === '' ? 'Date is required' : undefined)}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormSelectField fullWidth label="Payment Type" value={type} onChange={(e) => setType(e.target.value as PaymentType)}>
@@ -192,7 +211,16 @@ export default function PaymentForm() {
                   )}
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
-                  <FormField fullWidth type="number" label="Advance Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                  <FormField
+                    fullWidth
+                    required
+                    type="number"
+                    label="Advance Amount"
+                    value={amount}
+                    onChange={(e) => setAmount(Number(e.target.value))}
+                    error={submitted && amount <= 0}
+                    helperText={submitted && amount <= 0 ? 'Must be greater than 0' : undefined}
+                  />
                 </Grid>
               </Grid>
             </CardContent>
@@ -224,7 +252,16 @@ export default function PaymentForm() {
                   <FormField fullWidth label="Outstanding Balance" value={`NPR ${outstandingBalance.toFixed(2)}`} disabled />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
-                  <FormField fullWidth type="number" label="Paid Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                  <FormField
+                    fullWidth
+                    required
+                    type="number"
+                    label="Paid Amount"
+                    value={amount}
+                    onChange={(e) => setAmount(Number(e.target.value))}
+                    error={fieldErrors.amount != null || (submitted && amount <= 0)}
+                    helperText={fieldErrors.amount || (submitted && amount <= 0 ? 'Must be greater than 0' : undefined)}
+                  />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <FormField fullWidth label="Remaining Balance" value={`NPR ${remainingBalance.toFixed(2)}`} disabled />
@@ -239,7 +276,7 @@ export default function PaymentForm() {
           <CardContent sx={{ pt: 0 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="Method" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+                <FormSelectField fullWidth required label="Method" value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
                   {methods.map((m) => (
                     <MenuItem key={m} value={m}>{m}</MenuItem>
                   ))}

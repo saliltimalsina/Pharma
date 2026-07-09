@@ -35,6 +35,7 @@ export default function AdvancesList() {
   const [dialogAdvance, setDialogAdvance] = useState<Advance | null>(null);
   const [targetRef, setTargetRef] = useState('');
   const [applyAmount, setApplyAmount] = useState(0);
+  const [applyAttempted, setApplyAttempted] = useState(false);
 
   const remainingOf = (a: Advance) => a.amount - a.allocated;
   const totalUnallocated = advances.reduce((s, a) => s + remainingOf(a), 0);
@@ -65,10 +66,12 @@ export default function AdvancesList() {
       : supplierBills.filter((b) => billBalance(b) > 0 && b.status !== 'Draft' && b.status !== 'Cancelled').map((b) => b.billNo);
     setTargetRef(targets[0] ?? '');
     setApplyAmount(0);
+    setApplyAttempted(false);
   };
 
   const confirmApply = () => {
-    if (!dialogAdvance || !targetRef || applyAmount <= 0) return;
+    setApplyAttempted(true);
+    if (!dialogAdvance || !targetRef || applyAmount <= 0 || applyAmount > maxApplicable) return;
     applyAdvance(dialogAdvance.id, targetRef, applyAmount);
     setDialogAdvance(null);
   };
@@ -184,9 +187,12 @@ export default function AdvancesList() {
             </Typography>
             <FormSelectField
               fullWidth
+              required
               label={dialogAdvance?.direction === 'Customer' ? 'Apply to Invoice' : 'Apply to Bill'}
               value={targetRef}
               onChange={(e) => setTargetRef(e.target.value)}
+              error={applyAttempted && !targetRef}
+              helperText={applyAttempted && !targetRef ? 'Select a target document' : undefined}
             >
               {openTargets.length === 0 && <MenuItem value="">No open documents</MenuItem>}
               {openTargets.map((t) => (
@@ -195,10 +201,19 @@ export default function AdvancesList() {
             </FormSelectField>
             <FormField
               fullWidth
+              required
               type="number"
               label={`Amount to Apply (max NPR ${maxApplicable.toLocaleString()})`}
               value={applyAmount}
               onChange={(e) => setApplyAmount(Number(e.target.value))}
+              error={applyAttempted && (applyAmount <= 0 || applyAmount > maxApplicable)}
+              helperText={
+                applyAttempted && applyAmount <= 0
+                  ? 'Must be greater than 0'
+                  : applyAttempted && applyAmount > maxApplicable
+                    ? 'Exceeds the applicable maximum'
+                    : undefined
+              }
             />
           </Stack>
         </DialogContent>

@@ -51,12 +51,18 @@ export default function TransferForm() {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
   };
 
-  const canSubmit = reason.trim() !== '' && fromWarehouseId !== toWarehouseId;
+  const canSubmit =
+    reason.trim() !== '' &&
+    fromWarehouseId !== toWarehouseId &&
+    rows.every((r) => r.itemId !== '' && r.batchNumber.trim() !== '' && r.quantity > 0);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
   const save = async (submit: boolean) => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     setSubmitting(true);
     setError('');
     try {
@@ -108,21 +114,44 @@ export default function TransferForm() {
                 <FormField fullWidth label="Transfer Number" value="TRF-2026-0042 (auto)" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="Source Warehouse" value={fromWarehouseId} onChange={(e) => setFromWarehouseId(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  required
+                  label="Source Warehouse"
+                  value={fromWarehouseId}
+                  onChange={(e) => setFromWarehouseId(e.target.value)}
+                >
                   {warehouses.map((w) => (
                     <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
                   ))}
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="Destination Warehouse" value={toWarehouseId} onChange={(e) => setToWarehouseId(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  required
+                  label="Destination Warehouse"
+                  value={toWarehouseId}
+                  onChange={(e) => setToWarehouseId(e.target.value)}
+                  error={submitted && toWarehouseId === fromWarehouseId}
+                  helperText={submitted && toWarehouseId === fromWarehouseId ? 'Must differ from the source warehouse' : undefined}
+                >
                   {warehouses.map((w) => (
                     <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
                   ))}
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormField fullWidth label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Rebalance stock for packaging line" />
+                <FormField
+                  fullWidth
+                  required
+                  label="Reason"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="e.g. Rebalance stock for packaging line"
+                  error={submitted && reason.trim() === ''}
+                  helperText={submitted && reason.trim() === '' ? 'Reason is required' : undefined}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormField fullWidth label="Requested By" value={requestedBy} onChange={(e) => setRequestedBy(e.target.value)} />
@@ -152,10 +181,10 @@ export default function TransferForm() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Product</TableCell>
-                  <TableCell>Batch</TableCell>
+                  <TableCell>Product <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
+                  <TableCell>Batch <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell>Current Location</TableCell>
-                  <TableCell width={100}>Quantity</TableCell>
+                  <TableCell width={100}>Quantity <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell>Destination Bin</TableCell>
                   <TableCell width={50} />
                 </TableRow>
@@ -170,6 +199,8 @@ export default function TransferForm() {
                         fullWidth
                         value={row.itemId}
                         onChange={(e) => updateRow(row.key, 'itemId', e.target.value)}
+                        error={submitted && row.itemId === ''}
+                        helperText={submitted && row.itemId === '' ? 'Required' : undefined}
                         slotProps={{ select: { displayEmpty: true } }}
                       >
                         <MenuItem value="" disabled>
@@ -180,9 +211,29 @@ export default function TransferForm() {
                         ))}
                       </TextField>
                     </TableCell>
-                    <TableCell><TextField variant="standard" fullWidth placeholder="Batch number" value={row.batchNumber} onChange={(e) => updateRow(row.key, 'batchNumber', e.target.value)} /></TableCell>
+                    <TableCell>
+                      <TextField
+                        variant="standard"
+                        fullWidth
+                        placeholder="Batch number"
+                        value={row.batchNumber}
+                        onChange={(e) => updateRow(row.key, 'batchNumber', e.target.value)}
+                        error={submitted && row.batchNumber.trim() === ''}
+                        helperText={submitted && row.batchNumber.trim() === '' ? 'Required' : undefined}
+                      />
+                    </TableCell>
                     <TableCell><TextField variant="standard" fullWidth placeholder="e.g. WH01-A1-R1-S1" value={row.currentBin} onChange={(e) => updateRow(row.key, 'currentBin', e.target.value)} /></TableCell>
-                    <TableCell><TextField variant="standard" type="number" fullWidth value={row.quantity} onChange={(e) => updateRow(row.key, 'quantity', Number(e.target.value))} /></TableCell>
+                    <TableCell>
+                      <TextField
+                        variant="standard"
+                        type="number"
+                        fullWidth
+                        value={row.quantity}
+                        onChange={(e) => updateRow(row.key, 'quantity', Number(e.target.value))}
+                        error={submitted && row.quantity <= 0}
+                        helperText={submitted && row.quantity <= 0 ? 'Must be > 0' : undefined}
+                      />
+                    </TableCell>
                     <TableCell><TextField variant="standard" fullWidth placeholder="e.g. WH03-A1-R1-S1" value={row.destinationBin} onChange={(e) => updateRow(row.key, 'destinationBin', e.target.value)} /></TableCell>
                     <TableCell align="right">
                       <IconButton size="small" disabled={rows.length === 1} onClick={() => setRows((prev) => prev.filter((r) => r.key !== row.key))}>

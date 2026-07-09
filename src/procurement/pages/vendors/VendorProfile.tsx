@@ -92,7 +92,7 @@ function DocumentsPanel({ vendor }: { vendor: Vendor }) {
         <CardContent sx={{ pt: 0 }}>
           <Grid container spacing={2} sx={{ alignItems: 'flex-end' }}>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <FormField fullWidth size="small" label="Document Name" placeholder="e.g. GMP Certificate" value={name} onChange={(e) => setName(e.target.value)} />
+              <FormField fullWidth size="small" required label="Document Name" placeholder="e.g. GMP Certificate" value={name} onChange={(e) => setName(e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12, sm: 3 }}>
               <FormSelectField fullWidth size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value as VendorDoc['status'])}>

@@ -100,8 +100,14 @@ export default function GRNForm() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const canSubmit = poId !== '' && warehouseId !== '' && receivedDate !== '' && lines.every((l) => l.batchNumber.trim() !== '');
 
   const save = async (complete: boolean) => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     const grnItems: GrnItem[] = lines.map((l) => ({ ...l }));
     const inspection: GrnInspectionResult[] = inspectionChecks.map((check) => ({
       check,
@@ -109,6 +115,7 @@ export default function GRNForm() {
     }));
     setSubmitting(true);
     setError('');
+    setFieldErrors({});
     try {
       const grn = await addGrn(
         {
@@ -126,7 +133,13 @@ export default function GRNForm() {
       if (complete) await refreshBatches();
       navigate('/procurement/grn/' + grn.id);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not save the GRN.');
+      if (e instanceof ApiError && e.errors) {
+        const fe: Record<string, string> = {};
+        for (const k in e.errors) fe[k] = e.errors[k][0];
+        setFieldErrors(fe);
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not save the GRN.');
+      }
       setSubmitting(false);
     }
   };
@@ -156,7 +169,16 @@ export default function GRNForm() {
                 <FormField fullWidth size="small" label="GRN Number" value="Auto-generated" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth size="small" label="Purchase Order" value={poId} onChange={(e) => handlePoChange(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  size="small"
+                  required
+                  label="Purchase Order"
+                  value={poId}
+                  onChange={(e) => handlePoChange(e.target.value)}
+                  error={!!fieldErrors.purchaseOrderId}
+                  helperText={fieldErrors.purchaseOrderId}
+                >
                   {receivablePOs.map((p) => (
                     <MenuItem key={p.id} value={p.id}>{p.poNumber} — {p.vendorName}</MenuItem>
                   ))}
@@ -166,14 +188,33 @@ export default function GRNForm() {
                 <FormField fullWidth size="small" label="Vendor" value={po.vendorName} disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth size="small" label="Warehouse" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  size="small"
+                  required
+                  label="Warehouse"
+                  value={warehouseId}
+                  onChange={(e) => setWarehouseId(e.target.value)}
+                  error={!!fieldErrors.warehouseId}
+                  helperText={fieldErrors.warehouseId}
+                >
                   {inventoryWarehouses.map((w) => (
                     <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
                   ))}
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" type="date" label="Received Date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
+                <FormField
+                  fullWidth
+                  size="small"
+                  required
+                  type="date"
+                  label="Received Date"
+                  value={receivedDate}
+                  onChange={(e) => setReceivedDate(e.target.value)}
+                  error={!!fieldErrors.receivedDate || (submitted && receivedDate === '')}
+                  helperText={fieldErrors.receivedDate || (submitted && receivedDate === '' ? 'Received date is required' : undefined)}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormField fullWidth size="small" label="Delivery Note" placeholder="DN-xxxxx" value={deliveryNote} onChange={(e) => setDeliveryNote(e.target.value)} />
@@ -193,7 +234,7 @@ export default function GRNForm() {
                   <TableCell align="right">Received Qty</TableCell>
                   <TableCell align="right">Accepted Qty</TableCell>
                   <TableCell align="right">Rejected Qty</TableCell>
-                  <TableCell>Batch Number</TableCell>
+                  <TableCell>Batch Number <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell>Expiry Date</TableCell>
                 </TableRow>
               </TableHead>
@@ -205,7 +246,17 @@ export default function GRNForm() {
                     <TableCell align="right"><TextField variant="standard" type="number" value={line.receivedQty} onChange={(e) => updateLine(i, 'receivedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
                     <TableCell align="right"><TextField variant="standard" type="number" value={line.acceptedQty} onChange={(e) => updateLine(i, 'acceptedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
                     <TableCell align="right"><TextField variant="standard" type="number" value={line.rejectedQty} onChange={(e) => updateLine(i, 'rejectedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
-                    <TableCell><TextField variant="standard" value={line.batchNumber} onChange={(e) => updateLine(i, 'batchNumber', e.target.value)} placeholder="e.g. LM-26071" sx={{ width: 120 }} /></TableCell>
+                    <TableCell>
+                      <TextField
+                        variant="standard"
+                        value={line.batchNumber}
+                        onChange={(e) => updateLine(i, 'batchNumber', e.target.value)}
+                        placeholder="e.g. LM-26071"
+                        error={submitted && line.batchNumber.trim() === ''}
+                        helperText={submitted && line.batchNumber.trim() === '' ? 'Required' : undefined}
+                        sx={{ width: 120 }}
+                      />
+                    </TableCell>
                     <TableCell><TextField variant="standard" type="date" value={line.expiryDate} onChange={(e) => updateLine(i, 'expiryDate', e.target.value)} sx={{ width: 150 }} /></TableCell>
                   </TableRow>
                 ))}

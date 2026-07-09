@@ -57,11 +57,18 @@ export default function BillForm() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const canSubmit = dueDate !== '' && dueDate >= invoiceDate;
 
   const handleSubmit = async () => {
     if (!po) return;
+    setSubmitted(true);
+    if (!canSubmit) return;
     setSubmitting(true);
     setError('');
+    setFieldErrors({});
     try {
       const id = await addBill({
         vendorId: po.vendorId,
@@ -73,7 +80,13 @@ export default function BillForm() {
       });
       navigate(`/finance/bills/${id}`);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not record the bill.');
+      if (e instanceof ApiError && e.errors) {
+        const fe: Record<string, string> = {};
+        for (const k in e.errors) fe[k] = e.errors[k][0];
+        setFieldErrors(fe);
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not record the bill.');
+      }
       setSubmitting(false);
     }
   };
@@ -134,10 +147,26 @@ export default function BillForm() {
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth type="date" label="Invoice Date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
+                <FormField fullWidth required type="date" label="Invoice Date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth type="date" label="Due Date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                <FormField
+                  fullWidth
+                  required
+                  type="date"
+                  label="Due Date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  error={!!fieldErrors.dueDate || (submitted && (dueDate === '' || dueDate < invoiceDate))}
+                  helperText={
+                    fieldErrors.dueDate ||
+                    (submitted && dueDate === ''
+                      ? 'Due date is required'
+                      : submitted && dueDate < invoiceDate
+                        ? 'Must be on or after the invoice date'
+                        : undefined)
+                  }
+                />
               </Grid>
             </Grid>
           </CardContent>

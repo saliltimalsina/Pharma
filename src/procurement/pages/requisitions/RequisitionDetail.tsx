@@ -244,6 +244,7 @@ export default function RequisitionDetail() {
         <DialogContent>
           <FormField
             fullWidth
+            required
             label="Reason for rejection"
             multiline
             minRows={3}

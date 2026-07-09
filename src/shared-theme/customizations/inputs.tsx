@@ -439,6 +439,20 @@ export const inputsCustomizations: Components<Theme> = {
         typography: theme.typography.caption,
         marginBottom: 8,
       }),
+      asterisk: ({ theme }) => ({
+        color: (theme.vars || theme).palette.error.main,
+      }),
+    },
+  },
+  // TextField/Select render their label via InputLabel (a different class
+  // namespace than FormLabel, which the FormField/FormSelectField wrapper
+  // components use) - both need the override for every required field's
+  // asterisk to be red app-wide.
+  MuiInputLabel: {
+    styleOverrides: {
+      asterisk: ({ theme }) => ({
+        color: (theme.vars || theme).palette.error.main,
+      }),
     },
   },
 };

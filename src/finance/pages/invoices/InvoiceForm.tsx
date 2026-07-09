@@ -75,14 +75,20 @@ export default function InvoiceForm() {
   );
   const grandTotal = subtotal - discountTotal + vatTotal + shipping;
 
-  const canSubmit = lines.some((l) => l.product.trim() !== '');
+  const canSubmit =
+    dueDate !== '' && lines.every((l) => l.product.trim() !== '' && l.quantity > 0);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const save = async (status: 'Draft' | 'Sent' | 'Proforma') => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     setSubmitting(true);
     setError('');
+    setFieldErrors({});
     try {
       const id = await addInvoice(
         {
@@ -107,7 +113,13 @@ export default function InvoiceForm() {
       );
       navigate(`/finance/invoices/${id}`);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not save the invoice.');
+      if (e instanceof ApiError && e.errors) {
+        const fe: Record<string, string> = {};
+        for (const k in e.errors) fe[k] = e.errors[k][0];
+        setFieldErrors(fe);
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not save the invoice.');
+      }
       setSubmitting(false);
     }
   };
@@ -135,7 +147,15 @@ export default function InvoiceForm() {
                 <FormField fullWidth label="Invoice Number" value="INV-2026-1043 (auto)" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="Customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  required
+                  label="Customer"
+                  value={customerId}
+                  onChange={(e) => setCustomerId(e.target.value)}
+                  error={!!fieldErrors.customerId}
+                  helperText={fieldErrors.customerId}
+                >
                   {customers.map((c) => (
                     <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
                   ))}
@@ -171,9 +191,9 @@ export default function InvoiceForm() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Product</TableCell>
+                  <TableCell>Product <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell>Batch Number</TableCell>
-                  <TableCell width={90}>Qty</TableCell>
+                  <TableCell width={90}>Qty <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell width={100}>Unit Price</TableCell>
                   <TableCell width={90}>Discount %</TableCell>
                   <TableCell width={80}>VAT %</TableCell>
@@ -184,9 +204,29 @@ export default function InvoiceForm() {
               <TableBody>
                 {lines.map((row) => (
                   <TableRow key={row.key}>
-                    <TableCell><TextField variant="standard" fullWidth placeholder="Paracetamol 500mg Tablets" value={row.product} onChange={(e) => updateLine(row.key, 'product', e.target.value)} /></TableCell>
+                    <TableCell>
+                      <TextField
+                        variant="standard"
+                        fullWidth
+                        placeholder="Paracetamol 500mg Tablets"
+                        value={row.product}
+                        onChange={(e) => updateLine(row.key, 'product', e.target.value)}
+                        error={submitted && row.product.trim() === ''}
+                        helperText={submitted && row.product.trim() === '' ? 'Required' : undefined}
+                      />
+                    </TableCell>
                     <TableCell><TextField variant="standard" fullWidth value={row.batchNumber} onChange={(e) => updateLine(row.key, 'batchNumber', e.target.value)} /></TableCell>
-                    <TableCell><TextField variant="standard" type="number" fullWidth value={row.quantity} onChange={(e) => updateLine(row.key, 'quantity', Number(e.target.value))} /></TableCell>
+                    <TableCell>
+                      <TextField
+                        variant="standard"
+                        type="number"
+                        fullWidth
+                        value={row.quantity}
+                        onChange={(e) => updateLine(row.key, 'quantity', Number(e.target.value))}
+                        error={submitted && row.quantity <= 0}
+                        helperText={submitted && row.quantity <= 0 ? 'Must be > 0' : undefined}
+                      />
+                    </TableCell>
                     <TableCell><TextField variant="standard" type="number" fullWidth value={row.unitPrice} onChange={(e) => updateLine(row.key, 'unitPrice', Number(e.target.value))} /></TableCell>
                     <TableCell><TextField variant="standard" type="number" fullWidth value={row.discount} onChange={(e) => updateLine(row.key, 'discount', Number(e.target.value))} /></TableCell>
                     <TableCell><TextField variant="standard" type="number" fullWidth value={row.vat} onChange={(e) => updateLine(row.key, 'vat', Number(e.target.value))} /></TableCell>
@@ -210,7 +250,16 @@ export default function InvoiceForm() {
               <CardContent sx={{ pt: 0 }}>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <FormField fullWidth type="date" label="Due Date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                    <FormField
+                      fullWidth
+                      required
+                      type="date"
+                      label="Due Date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      error={!!fieldErrors.dueDate || (submitted && dueDate === '')}
+                      helperText={fieldErrors.dueDate || (submitted && dueDate === '' ? 'Due date is required' : undefined)}
+                    />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <FormSelectField fullWidth label="Payment Method" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>

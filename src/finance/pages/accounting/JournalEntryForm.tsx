@@ -27,8 +27,11 @@ export default function JournalEntryForm() {
   const [costCenter, setCostCenter] = useState('');
 
   const canSubmit = description.trim() !== '' && amount > 0 && debitAccount !== creditAccount;
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = () => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     addJournalEntry({ reference, description, date, debitAccount, creditAccount, amount, costCenter: costCenter || undefined });
     navigate('/finance/accounting');
   };
@@ -53,24 +56,50 @@ export default function JournalEntryForm() {
                 <FormField fullWidth type="date" label="Date" value={date} onChange={(e) => setDate(e.target.value)} />
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <FormField fullWidth label="Description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Revenue recognition — MedLife Pharmacy invoice" />
+                <FormField
+                  fullWidth
+                  required
+                  label="Description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="e.g. Revenue recognition — MedLife Pharmacy invoice"
+                  error={submitted && description.trim() === ''}
+                  helperText={submitted && description.trim() === '' ? 'Description is required' : undefined}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="Debit Account" value={debitAccount} onChange={(e) => setDebitAccount(e.target.value)}>
+                <FormSelectField fullWidth required label="Debit Account" value={debitAccount} onChange={(e) => setDebitAccount(e.target.value)}>
                   {chartOfAccounts.map((a) => (
                     <MenuItem key={a.code} value={a.name}>{a.name}</MenuItem>
                   ))}
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="Credit Account" value={creditAccount} onChange={(e) => setCreditAccount(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  required
+                  label="Credit Account"
+                  value={creditAccount}
+                  onChange={(e) => setCreditAccount(e.target.value)}
+                  error={submitted && creditAccount === debitAccount}
+                  helperText={submitted && creditAccount === debitAccount ? 'Must differ from the debit account' : undefined}
+                >
                   {chartOfAccounts.map((a) => (
                     <MenuItem key={a.code} value={a.name}>{a.name}</MenuItem>
                   ))}
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth type="number" label="Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                <FormField
+                  fullWidth
+                  required
+                  type="number"
+                  label="Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  error={submitted && amount <= 0}
+                  helperText={submitted && amount <= 0 ? 'Must be greater than 0' : undefined}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormSelectField fullWidth label="Cost Centre (optional)" value={costCenter} onChange={(e) => setCostCenter(e.target.value)}>

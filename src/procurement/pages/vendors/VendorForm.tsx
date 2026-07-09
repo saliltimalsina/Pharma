@@ -40,14 +40,19 @@ export default function VendorForm() {
   const [currency, setCurrency] = useState(currencies[0]);
   const [creditLimit, setCreditLimit] = useState(0);
 
-  const canSubmit = name.trim() !== '' && email.trim() !== '' && country.trim() !== '';
+  const canSubmit = name.trim() !== '' && phone.trim() !== '' && email.trim() !== '' && address.trim() !== '' && country.trim() !== '';
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleSubmit = async () => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     setSubmitting(true);
     setError('');
+    setFieldErrors({});
     try {
       const id = await addVendor({
         name,
@@ -71,7 +76,13 @@ export default function VendorForm() {
       });
       navigate(`/procurement/vendors/${id}`);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not save the vendor.');
+      if (e instanceof ApiError && e.errors) {
+        const fe: Record<string, string> = {};
+        for (const k in e.errors) fe[k] = e.errors[k][0];
+        setFieldErrors(fe);
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not save the vendor.');
+      }
       setSubmitting(false);
     }
   };
@@ -98,10 +109,27 @@ export default function VendorForm() {
           <CardContent sx={{ pt: 0 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormField fullWidth label="Company Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Alpine Pharma Chemicals" />
+                <FormField
+                  fullWidth
+                  required
+                  label="Company Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Alpine Pharma Chemicals"
+                  error={!!fieldErrors.name || (submitted && name.trim() === '')}
+                  helperText={fieldErrors.name || (submitted && name.trim() === '' ? 'Company name is required' : undefined)}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormSelectField fullWidth label="Category" value={category} onChange={(e) => setCategory(e.target.value as VendorCategory)}>
+                <FormSelectField
+                  fullWidth
+                  required
+                  label="Category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as VendorCategory)}
+                  error={!!fieldErrors.vendorCategoryId}
+                  helperText={fieldErrors.vendorCategoryId}
+                >
                   {categories.map((c) => (
                     <MenuItem key={c} value={c}>{c}</MenuItem>
                   ))}
@@ -124,7 +152,16 @@ export default function VendorForm() {
                 <FormField fullWidth type="date" label="Established Date" value={establishedDate} onChange={(e) => setEstablishedDate(e.target.value)} />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormField fullWidth label="Country" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="e.g. Switzerland" />
+                <FormField
+                  fullWidth
+                  required
+                  label="Country"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="e.g. Switzerland"
+                  error={!!fieldErrors.country || (submitted && country.trim() === '')}
+                  helperText={fieldErrors.country || (submitted && country.trim() === '' ? 'Country is required' : undefined)}
+                />
               </Grid>
             </Grid>
           </CardContent>
@@ -138,16 +175,41 @@ export default function VendorForm() {
                 <FormField fullWidth label="Primary Contact" value={primaryContact} onChange={(e) => setPrimaryContact(e.target.value)} />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormField fullWidth label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <FormField
+                  fullWidth
+                  required
+                  label="Phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  error={!!fieldErrors.phone || (submitted && phone.trim() === '')}
+                  helperText={fieldErrors.phone || (submitted && phone.trim() === '' ? 'Phone is required' : undefined)}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormField fullWidth type="email" label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <FormField
+                  fullWidth
+                  required
+                  type="email"
+                  label="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  error={!!fieldErrors.email || (submitted && email.trim() === '')}
+                  helperText={fieldErrors.email || (submitted && email.trim() === '' ? 'Email is required' : undefined)}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <FormField fullWidth label="Website" value={website} onChange={(e) => setWebsite(e.target.value)} />
               </Grid>
               <Grid size={{ xs: 12 }}>
-                <FormField fullWidth label="Address" value={address} onChange={(e) => setAddress(e.target.value)} />
+                <FormField
+                  fullWidth
+                  required
+                  label="Address"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  error={!!fieldErrors.address || (submitted && address.trim() === '')}
+                  helperText={fieldErrors.address || (submitted && address.trim() === '' ? 'Address is required' : undefined)}
+                />
               </Grid>
             </Grid>
           </CardContent>

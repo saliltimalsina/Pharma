@@ -51,8 +51,11 @@ export default function StockInForm() {
 
   const isComplete = (r: StockInLine) => r.itemId !== '' && r.batchNumber.trim() !== '' && r.quantity > 0;
   const canSubmit = rows.some(isComplete);
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = () => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     const lines: StockInLine[] = rows.filter(isComplete).map(({ key, ...line }) => line);
     receiveStock(lines);
     navigate('/inventory/stock');
@@ -81,7 +84,15 @@ export default function StockInForm() {
             <CardContent sx={{ pt: 0 }}>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 4 }}>
-                  <FormSelectField fullWidth label="Product" value={row.itemId} onChange={(e) => updateRow(row.key, 'itemId', e.target.value)}>
+                  <FormSelectField
+                    fullWidth
+                    required
+                    label="Product"
+                    value={row.itemId}
+                    onChange={(e) => updateRow(row.key, 'itemId', e.target.value)}
+                    error={submitted && row.itemId === ''}
+                    helperText={submitted && row.itemId === '' ? 'Required' : undefined}
+                  >
                     <MenuItem value="">Select a product</MenuItem>
                     {items.map((it) => (
                       <MenuItem key={it.id} value={it.id}>{it.name}</MenuItem>
@@ -89,7 +100,16 @@ export default function StockInForm() {
                   </FormSelectField>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
-                  <FormField fullWidth label="Batch Number" value={row.batchNumber} onChange={(e) => updateRow(row.key, 'batchNumber', e.target.value)} placeholder="e.g. LM-26061" />
+                  <FormField
+                    fullWidth
+                    required
+                    label="Batch Number"
+                    value={row.batchNumber}
+                    onChange={(e) => updateRow(row.key, 'batchNumber', e.target.value)}
+                    placeholder="e.g. LM-26061"
+                    error={submitted && row.batchNumber.trim() === ''}
+                    helperText={submitted && row.batchNumber.trim() === '' ? 'Required' : undefined}
+                  />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
                   <FormSelectField fullWidth label="Warehouse" value={row.warehouseId} onChange={(e) => updateRow(row.key, 'warehouseId', e.target.value)}>
@@ -99,7 +119,16 @@ export default function StockInForm() {
                   </FormSelectField>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 3 }}>
-                  <FormField fullWidth type="number" label="Quantity" value={row.quantity} onChange={(e) => updateRow(row.key, 'quantity', Number(e.target.value))} />
+                  <FormField
+                    fullWidth
+                    required
+                    type="number"
+                    label="Quantity"
+                    value={row.quantity}
+                    onChange={(e) => updateRow(row.key, 'quantity', Number(e.target.value))}
+                    error={submitted && row.quantity <= 0}
+                    helperText={submitted && row.quantity <= 0 ? 'Must be greater than 0' : undefined}
+                  />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 3 }}>
                   <FormField fullWidth type="date" label="Expiry Date" value={row.expiryDate} onChange={(e) => updateRow(row.key, 'expiryDate', e.target.value)} />

@@ -38,11 +38,16 @@ export default function DebitNoteForm() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleSubmit = async () => {
+    setSubmitted(true);
     if (!selected) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     setError('');
+    setFieldErrors({});
     try {
       await addDebitNote({
         date,
@@ -55,7 +60,13 @@ export default function DebitNoteForm() {
       });
       navigate('/finance/debit-notes');
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not issue the debit note.');
+      if (e instanceof ApiError && e.errors) {
+        const fe: Record<string, string> = {};
+        for (const k in e.errors) fe[k] = e.errors[k][0];
+        setFieldErrors(fe);
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not issue the debit note.');
+      }
       setSubmitting(false);
     }
   };
@@ -83,10 +94,27 @@ export default function DebitNoteForm() {
                 <FormField fullWidth label="Debit Note Number" value="DN-2026 (auto)" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth type="date" label="Date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <FormField
+                  fullWidth
+                  required
+                  type="date"
+                  label="Date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  error={submitted && date === ''}
+                  helperText={submitted && date === '' ? 'Date is required' : undefined}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="Bill" value={billNo} onChange={(e) => setBillNo(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  required
+                  label="Bill"
+                  value={billNo}
+                  onChange={(e) => setBillNo(e.target.value)}
+                  error={!!fieldErrors.supplierBillId || (submitted && !selected)}
+                  helperText={fieldErrors.supplierBillId || (submitted && !selected ? 'Select a bill' : undefined)}
+                >
                   {openBills.length === 0 && <MenuItem value="">No open bills</MenuItem>}
                   {openBills.map((b) => (
                     <MenuItem key={b.id} value={b.billNo}>{b.billNo} — {b.vendorName}</MenuItem>
@@ -100,7 +128,23 @@ export default function DebitNoteForm() {
                 <FormField fullWidth label="Outstanding Balance" value={`NPR ${outstanding.toFixed(2)}`} disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth type="number" label="Debit Amount" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                <FormField
+                  fullWidth
+                  required
+                  type="number"
+                  label="Debit Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  error={!!fieldErrors.amount || (submitted && (amount <= 0 || amount > outstanding))}
+                  helperText={
+                    fieldErrors.amount ||
+                    (submitted && amount <= 0
+                      ? 'Must be greater than 0'
+                      : submitted && amount > outstanding
+                        ? 'Cannot exceed the outstanding balance'
+                        : undefined)
+                  }
+                />
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <FormField fullWidth label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Damaged goods returned, short delivery" />

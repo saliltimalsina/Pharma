@@ -29,10 +29,13 @@ export default function Login() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   if (isAuthenticated) return <Navigate to="/" replace />;
 
   const handleSubmit = async () => {
+    setSubmitted(true);
+    if (!email.trim() || !password.trim()) return;
     setSubmitting(true);
     setError('');
     const result = await login(email, password);
@@ -103,6 +106,9 @@ export default function Login() {
             label="Email"
             required
             fullWidth
+            error={submitted && !email.trim()}
+            helperText={submitted && !email.trim() ? 'Email is required' : undefined}
+            sx={{ '& .MuiInputLabel-asterisk': { color: 'error.main' } }}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             slotProps={{
@@ -119,6 +125,9 @@ export default function Login() {
             label="Password"
             required
             fullWidth
+            error={submitted && !password.trim()}
+            helperText={submitted && !password.trim() ? 'Password is required' : undefined}
+            sx={{ '& .MuiInputLabel-asterisk': { color: 'error.main' } }}
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}

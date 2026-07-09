@@ -113,11 +113,20 @@ export default function POForm() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const canSubmit =
+    vendorId !== '' && orderDate !== '' && expectedDelivery !== '' && expectedDelivery >= orderDate &&
+    items.every((it) => it.product !== '');
 
   const save = async (submit: boolean) => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     const cleanItems: PoItem[] = items.map(({ key: _key, ...rest }) => rest);
     setSubmitting(true);
     setError('');
+    setFieldErrors({});
     try {
       const id = await addPurchaseOrder(
         {
@@ -137,7 +146,13 @@ export default function POForm() {
       );
       navigate('/procurement/purchase-orders/' + id);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not save the purchase order.');
+      if (e instanceof ApiError && e.errors) {
+        const fe: Record<string, string> = {};
+        for (const k in e.errors) fe[k] = e.errors[k][0];
+        setFieldErrors(fe);
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not save the purchase order.');
+      }
       setSubmitting(false);
     }
   };
@@ -167,7 +182,16 @@ export default function POForm() {
                 <FormField fullWidth size="small" label="PO Number" value="PO-2026-0513 (auto)" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth size="small" label="Vendor" value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  size="small"
+                  required
+                  label="Vendor"
+                  value={vendorId}
+                  onChange={(e) => setVendorId(e.target.value)}
+                  error={!!fieldErrors.vendorId}
+                  helperText={fieldErrors.vendorId}
+                >
                   {vendors.map((v) => (
                     <MenuItem key={v.id} value={v.id}>{v.name}</MenuItem>
                   ))}
@@ -195,10 +219,37 @@ export default function POForm() {
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" type="date" label="Order Date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
+                <FormField
+                  fullWidth
+                  size="small"
+                  required
+                  type="date"
+                  label="Order Date"
+                  value={orderDate}
+                  onChange={(e) => setOrderDate(e.target.value)}
+                  error={!!fieldErrors.orderDate || (submitted && orderDate === '')}
+                  helperText={fieldErrors.orderDate || (submitted && orderDate === '' ? 'Order date is required' : undefined)}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" type="date" label="Expected Date" value={expectedDelivery} onChange={(e) => setExpectedDelivery(e.target.value)} />
+                <FormField
+                  fullWidth
+                  size="small"
+                  required
+                  type="date"
+                  label="Expected Date"
+                  value={expectedDelivery}
+                  onChange={(e) => setExpectedDelivery(e.target.value)}
+                  error={!!fieldErrors.expectedDelivery || (submitted && (expectedDelivery === '' || expectedDelivery < orderDate))}
+                  helperText={
+                    fieldErrors.expectedDelivery ||
+                    (submitted && expectedDelivery === ''
+                      ? 'Expected date is required'
+                      : submitted && expectedDelivery < orderDate
+                        ? 'Must be on or after the order date'
+                        : undefined)
+                  }
+                />
               </Grid>
             </Grid>
           </CardContent>
@@ -218,7 +269,7 @@ export default function POForm() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Product</TableCell>
+                  <TableCell>Product <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell>Description</TableCell>
                   <TableCell width={80}>Qty</TableCell>
                   <TableCell width={80}>Unit</TableCell>
@@ -239,6 +290,8 @@ export default function POForm() {
                         fullWidth
                         value={row.product}
                         onChange={(e) => updateItem(row.key, 'product', e.target.value)}
+                        error={submitted && row.product === ''}
+                        helperText={submitted && row.product === '' ? 'Required' : undefined}
                         slotProps={{ select: { displayEmpty: true } }}
                       >
                         <MenuItem value="" disabled>

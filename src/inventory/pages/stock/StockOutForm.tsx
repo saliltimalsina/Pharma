@@ -58,8 +58,11 @@ export default function StockOutForm() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async () => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     const lines: StockOutLine[] = rows.filter(isComplete).map((r) => ({
       itemId: r.itemId,
       warehouseId: r.warehouseId,
@@ -108,7 +111,15 @@ export default function StockOutForm() {
               <CardContent sx={{ pt: 0 }}>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, sm: 4 }}>
-                    <FormSelectField fullWidth label="Product" value={row.itemId} onChange={(e) => updateRow(row.key, 'itemId', e.target.value)}>
+                    <FormSelectField
+                      fullWidth
+                      required
+                      label="Product"
+                      value={row.itemId}
+                      onChange={(e) => updateRow(row.key, 'itemId', e.target.value)}
+                      error={submitted && row.itemId === ''}
+                      helperText={submitted && row.itemId === '' ? 'Required' : undefined}
+                    >
                       <MenuItem value="">Select a product</MenuItem>
                       {items.map((it) => (
                         <MenuItem key={it.id} value={it.id}>{it.name}</MenuItem>
@@ -116,14 +127,23 @@ export default function StockOutForm() {
                     </FormSelectField>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 4 }}>
-                    <FormSelectField fullWidth label="Warehouse" value={row.warehouseId} onChange={(e) => updateRow(row.key, 'warehouseId', e.target.value)}>
+                    <FormSelectField fullWidth required label="Warehouse" value={row.warehouseId} onChange={(e) => updateRow(row.key, 'warehouseId', e.target.value)}>
                       {warehouses.map((w) => (
                         <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
                       ))}
                     </FormSelectField>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 4 }}>
-                    <FormField fullWidth type="number" label="Quantity" value={row.quantity} onChange={(e) => updateRow(row.key, 'quantity', Number(e.target.value))} />
+                    <FormField
+                      fullWidth
+                      required
+                      type="number"
+                      label="Quantity"
+                      value={row.quantity}
+                      onChange={(e) => updateRow(row.key, 'quantity', Number(e.target.value))}
+                      error={submitted && row.quantity <= 0}
+                      helperText={submitted && row.quantity <= 0 ? 'Must be greater than 0' : undefined}
+                    />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 4 }}>
                     <FormSelectField fullWidth label="Reason" value={row.reason} onChange={(e) => updateRow(row.key, 'reason', e.target.value)}>

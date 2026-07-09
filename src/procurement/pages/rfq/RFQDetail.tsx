@@ -89,10 +89,10 @@ function QuotationsPanel({
         <TableHead>
           <TableRow>
             <TableCell>Vendor</TableCell>
-            <TableCell width={120} align="right">Price ({rfq.currency})</TableCell>
-            <TableCell width={120} align="right">Delivery (days)</TableCell>
+            <TableCell width={120} align="right">Price ({rfq.currency}) <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
+            <TableCell width={120} align="right">Delivery (days) <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
             <TableCell width={140}>Payment Terms</TableCell>
-            <TableCell width={130} align="right">Quality (0–5)</TableCell>
+            <TableCell width={130} align="right">Quality (0–5) <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
             <TableCell width={120} />
           </TableRow>
         </TableHead>

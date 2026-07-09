@@ -18,6 +18,7 @@ import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
 import Avatar from '@mui/material/Avatar';
 import Checkbox from '@mui/material/Checkbox';
+import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
@@ -74,11 +75,19 @@ export default function RFQForm() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const canSubmit =
+    title.trim() !== '' && closingDate !== '' && items.every((it) => it.item !== '') && selectedVendors.length > 0;
 
   const save = async (send: boolean) => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     const cleanItems: RequisitionItem[] = items.map(({ key: _key, ...rest }) => rest);
     setSubmitting(true);
     setError('');
+    setFieldErrors({});
     try {
       const id = await addRfq(
         {
@@ -95,7 +104,13 @@ export default function RFQForm() {
       );
       navigate('/procurement/rfqs/' + id);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not save the RFQ.');
+      if (e instanceof ApiError && e.errors) {
+        const fe: Record<string, string> = {};
+        for (const k in e.errors) fe[k] = e.errors[k][0];
+        setFieldErrors(fe);
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not save the RFQ.');
+      }
       setSubmitting(false);
     }
   };
@@ -125,17 +140,46 @@ export default function RFQForm() {
                 <FormField fullWidth size="small" label="RFQ Number" value="RFQ-2026-0032 (auto)" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" label="Title" placeholder="e.g. Lactose Monohydrate — Q3 Supply" value={title} onChange={(e) => setTitle(e.target.value)} />
+                <FormField
+                  fullWidth
+                  size="small"
+                  required
+                  label="Title"
+                  placeholder="e.g. Lactose Monohydrate — Q3 Supply"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  error={!!fieldErrors.title || (submitted && title.trim() === '')}
+                  helperText={fieldErrors.title || (submitted && title.trim() === '' ? 'Title is required' : undefined)}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth size="small" label="Purchase Category" value={category} onChange={(e) => setCategory(e.target.value as VendorCategory)}>
+                <FormSelectField
+                  fullWidth
+                  size="small"
+                  required
+                  label="Purchase Category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as VendorCategory)}
+                  error={!!fieldErrors.vendorCategoryId}
+                  helperText={fieldErrors.vendorCategoryId}
+                >
                   {categories.map((c) => (
                     <MenuItem key={c} value={c}>{c}</MenuItem>
                   ))}
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" type="date" label="Closing Date" value={closingDate} onChange={(e) => setClosingDate(e.target.value)} />
+                <FormField
+                  fullWidth
+                  size="small"
+                  required
+                  type="date"
+                  label="Closing Date"
+                  value={closingDate}
+                  onChange={(e) => setClosingDate(e.target.value)}
+                  error={!!fieldErrors.closingDate || (submitted && closingDate === '')}
+                  helperText={fieldErrors.closingDate || (submitted && closingDate === '' ? 'Closing date is required' : undefined)}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormSelectField fullWidth size="small" label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
@@ -162,7 +206,7 @@ export default function RFQForm() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Item</TableCell>
+                  <TableCell>Item <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell width={100}>Qty</TableCell>
                   <TableCell width={90}>Unit</TableCell>
                   <TableCell width={150}>Required Date</TableCell>
@@ -180,6 +224,8 @@ export default function RFQForm() {
                         fullWidth
                         value={row.item}
                         onChange={(e) => updateItem(row.key, 'item', e.target.value)}
+                        error={submitted && row.item === ''}
+                        helperText={submitted && row.item === '' ? 'Required' : undefined}
                         slotProps={{ select: { displayEmpty: true } }}
                       >
                         <MenuItem value="" disabled>
@@ -208,7 +254,7 @@ export default function RFQForm() {
 
         <Card variant="outlined">
           <CardHeader
-            title="Select Vendors"
+            title={<>Select Vendors <Box component="span" sx={{ color: 'error.main' }}>*</Box></>}
             slotProps={{ title: { variant: 'subtitle2' } }}
             subheader={`${selectedVendors.length} selected`}
           />
@@ -242,6 +288,11 @@ export default function RFQForm() {
                 ))}
               </TableBody>
             </Table>
+            {submitted && selectedVendors.length === 0 && (
+              <Typography variant="caption" sx={{ color: 'error.main', display: 'block', mt: 1 }}>
+                Select at least one vendor to invite.
+              </Typography>
+            )}
           </CardContent>
         </Card>
 
@@ -249,7 +300,7 @@ export default function RFQForm() {
           <Button variant="outlined" disabled={submitting} loading={submitting} onClick={() => save(false)}>Save as Draft</Button>
           <Button
             variant="contained"
-            disabled={selectedVendors.length === 0 || submitting}
+            disabled={submitting}
             loading={submitting}
             onClick={() => save(true)}
           >

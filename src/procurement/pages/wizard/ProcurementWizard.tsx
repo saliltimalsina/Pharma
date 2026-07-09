@@ -234,7 +234,7 @@ export default function ProcurementWizard() {
               <FormField fullWidth size="small" required label="Title" placeholder="e.g. Lactose Monohydrate — Q3 Supply" value={title} onChange={(e) => setTitle(e.target.value)} />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <FormSelectField fullWidth size="small" label="Purchase Category" value={category} onChange={(e) => setCategory(e.target.value as VendorCategory)}>
+              <FormSelectField fullWidth size="small" required label="Purchase Category" value={category} onChange={(e) => setCategory(e.target.value as VendorCategory)}>
                 {categories.map((c) => (
                   <MenuItem key={c} value={c}>{c}</MenuItem>
                 ))}

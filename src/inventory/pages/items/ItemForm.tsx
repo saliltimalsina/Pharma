@@ -60,13 +60,18 @@ export default function ItemForm() {
   const [purchasePrice, setPurchasePrice] = useState(0);
   const [currency, setCurrency] = useState(currencies[0]);
 
-  const canSubmit = name.trim() !== '' && category !== '';
+  const canSubmit = name.trim() !== '' && category !== '' && uom !== '';
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleSubmit = async () => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     setSubmitting(true);
     setError('');
+    setFieldErrors({});
     try {
       const id = await addItem({
         name,
@@ -92,7 +97,13 @@ export default function ItemForm() {
       });
       navigate(`/inventory/items/${id}`);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not save the item.');
+      if (e instanceof ApiError && e.errors) {
+        const fe: Record<string, string> = {};
+        for (const k in e.errors) fe[k] = e.errors[k][0];
+        setFieldErrors(fe);
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not save the item.');
+      }
       setSubmitting(false);
     }
   };
@@ -120,10 +131,27 @@ export default function ItemForm() {
                 <FormField fullWidth label="SKU" value="Auto-generated" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth label="Product Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Paracetamol API" />
+                <FormField
+                  fullWidth
+                  required
+                  label="Product Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Paracetamol API"
+                  error={!!fieldErrors.materialName || (submitted && name.trim() === '')}
+                  helperText={fieldErrors.materialName || (submitted && name.trim() === '' ? 'Product name is required' : undefined)}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  required
+                  label="Category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  error={!!fieldErrors.category}
+                  helperText={fieldErrors.category}
+                >
                   {categories.map((c) => (
                     <MenuItem key={c} value={c}>{c}</MenuItem>
                   ))}
@@ -151,7 +179,15 @@ export default function ItemForm() {
           <CardContent sx={{ pt: 0 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth label="Unit of Measure" value={uom} onChange={(e) => setUom(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  required
+                  label="Unit of Measure"
+                  value={uom}
+                  onChange={(e) => setUom(e.target.value)}
+                  error={!!fieldErrors.unitOfMeasure}
+                  helperText={fieldErrors.unitOfMeasure}
+                >
                   {uoms.map((u) => (
                     <MenuItem key={u} value={u}>{u}</MenuItem>
                   ))}

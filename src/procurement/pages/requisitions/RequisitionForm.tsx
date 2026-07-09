@@ -66,10 +66,15 @@ export default function RequisitionForm() {
     department !== '' && requester.trim() !== '' && purpose.trim() !== '' && items.every((it) => it.item !== '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const save = async (submit: boolean) => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     setSubmitting(true);
     setError('');
+    setFieldErrors({});
     try {
       const id = await addRequisition(
         {
@@ -94,7 +99,13 @@ export default function RequisitionForm() {
       );
       navigate(`/procurement/requisitions/${id}`);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not save the requisition.');
+      if (e instanceof ApiError && e.errors) {
+        const fe: Record<string, string> = {};
+        for (const k in e.errors) fe[k] = e.errors[k][0];
+        setFieldErrors(fe);
+      } else {
+        setError(e instanceof ApiError ? e.message : 'Could not save the requisition.');
+      }
       setSubmitting(false);
     }
   };
@@ -126,14 +137,32 @@ export default function RequisitionForm() {
                 <FormField fullWidth size="small" label="Requisition Number" value="REQ-2026-0143 (auto)" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormSelectField fullWidth size="small" label="Department" value={department} onChange={(e) => setDepartment(e.target.value)}>
+                <FormSelectField
+                  fullWidth
+                  size="small"
+                  required
+                  label="Department"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  error={!!fieldErrors.departmentId}
+                  helperText={fieldErrors.departmentId}
+                >
                   {departments.map((d) => (
                     <MenuItem key={d} value={d}>{d}</MenuItem>
                   ))}
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" label="Requester" value={requester} onChange={(e) => setRequester(e.target.value)} />
+                <FormField
+                  fullWidth
+                  size="small"
+                  required
+                  label="Requester"
+                  value={requester}
+                  onChange={(e) => setRequester(e.target.value)}
+                  error={submitted && requester.trim() === ''}
+                  helperText={submitted && requester.trim() === '' ? 'Requester is required' : undefined}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormField fullWidth size="small" type="date" label="Required Date" value={requiredDate} onChange={(e) => setRequiredDate(e.target.value)} />
@@ -146,7 +175,17 @@ export default function RequisitionForm() {
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" label="Purpose" placeholder="e.g. Batch B-2207 production" value={purpose} onChange={(e) => setPurpose(e.target.value)} />
+                <FormField
+                  fullWidth
+                  size="small"
+                  required
+                  label="Purpose"
+                  placeholder="e.g. Batch B-2207 production"
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
+                  error={!!fieldErrors.purposeRemarks || (submitted && purpose.trim() === '')}
+                  helperText={fieldErrors.purposeRemarks || (submitted && purpose.trim() === '' ? 'Purpose is required' : undefined)}
+                />
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <FormField fullWidth size="small" label="Notes" multiline minRows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -169,7 +208,7 @@ export default function RequisitionForm() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Item</TableCell>
+                  <TableCell>Item <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell>Description</TableCell>
                   <TableCell width={110}>Required Qty</TableCell>
                   <TableCell width={90}>Unit</TableCell>
@@ -189,6 +228,8 @@ export default function RequisitionForm() {
                         value={row.item}
                         onChange={(e) => updateItem(row.key, 'item', e.target.value)}
                         fullWidth
+                        error={submitted && row.item === ''}
+                        helperText={submitted && row.item === '' ? 'Required' : undefined}
                         slotProps={{ select: { displayEmpty: true } }}
                       >
                         <MenuItem value="" disabled>

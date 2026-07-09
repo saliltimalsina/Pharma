@@ -51,12 +51,16 @@ export default function AdjustmentForm() {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
   };
 
-  const canSubmit = reference.trim() !== '' && rows.some((r) => r.itemId.trim() !== '');
+  const canSubmit =
+    reference.trim() !== '' && rows.every((r) => r.itemId.trim() !== '' && r.batchNumber.trim() !== '');
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async () => {
+    setSubmitted(true);
+    if (!canSubmit) return;
     setSubmitting(true);
     setError('');
     try {
@@ -122,7 +126,16 @@ export default function AdjustmentForm() {
                 </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 3 }}>
-                <FormField fullWidth label="Reference" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g. GRN or cycle count ref." />
+                <FormField
+                  fullWidth
+                  required
+                  label="Reference"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  placeholder="e.g. GRN or cycle count ref."
+                  error={submitted && reference.trim() === ''}
+                  helperText={submitted && reference.trim() === '' ? 'Reference is required' : undefined}
+                />
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <FormField fullWidth multiline minRows={2} label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -145,8 +158,8 @@ export default function AdjustmentForm() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Product</TableCell>
-                  <TableCell>Batch</TableCell>
+                  <TableCell>Product <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
+                  <TableCell>Batch <Box component="span" sx={{ color: 'error.main' }}>*</Box></TableCell>
                   <TableCell width={110}>Current Qty</TableCell>
                   <TableCell width={110}>Actual Qty</TableCell>
                   <TableCell width={100} align="right">Difference</TableCell>
@@ -165,6 +178,8 @@ export default function AdjustmentForm() {
                           fullWidth
                           value={row.itemId}
                           onChange={(e) => updateRow(row.key, 'itemId', e.target.value)}
+                          error={submitted && row.itemId === ''}
+                          helperText={submitted && row.itemId === '' ? 'Required' : undefined}
                           slotProps={{ select: { displayEmpty: true } }}
                         >
                           <MenuItem value="" disabled>
@@ -175,7 +190,17 @@ export default function AdjustmentForm() {
                           ))}
                         </TextField>
                       </TableCell>
-                      <TableCell><TextField variant="standard" fullWidth placeholder="Batch number" value={row.batchNumber} onChange={(e) => updateRow(row.key, 'batchNumber', e.target.value)} /></TableCell>
+                      <TableCell>
+                        <TextField
+                          variant="standard"
+                          fullWidth
+                          placeholder="Batch number"
+                          value={row.batchNumber}
+                          onChange={(e) => updateRow(row.key, 'batchNumber', e.target.value)}
+                          error={submitted && row.batchNumber.trim() === ''}
+                          helperText={submitted && row.batchNumber.trim() === '' ? 'Required' : undefined}
+                        />
+                      </TableCell>
                       <TableCell><TextField variant="standard" type="number" fullWidth value={row.currentQty} onChange={(e) => updateRow(row.key, 'currentQty', Number(e.target.value))} /></TableCell>
                       <TableCell><TextField variant="standard" type="number" fullWidth value={row.actualQty} onChange={(e) => updateRow(row.key, 'actualQty', Number(e.target.value))} /></TableCell>
                       <TableCell align="right" sx={{ color: diff < 0 ? 'error.main' : diff > 0 ? 'success.main' : 'text.secondary', fontWeight: 600 }}>
