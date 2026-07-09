@@ -49,6 +49,7 @@ export default function BillDetail() {
   const balance = billBalance(bill);
   const relatedPayments = payments.filter((p) => p.invoiceOrBillRef === bill.billNo);
   const relatedDebitNotes = debitNotes.filter((n) => n.billNo === bill.billNo);
+  const canSettle = balance > 0 && ['Approved', 'Partially Paid'].includes(bill.status);
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -132,7 +133,18 @@ export default function BillDetail() {
         </TableHead>
         <TableBody>
           {relatedPayments.length === 0 && (
-            <TableRow><TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>No payments recorded yet</TableCell></TableRow>
+            <TableRow>
+              <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>
+                <Stack sx={{ alignItems: 'center', py: 2, gap: 1.5 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>No payments recorded yet</Typography>
+                  {canSettle && (
+                    <Button variant="outlined" size="small" onClick={() => navigate(`/finance/payments/new?bill=${bill.billNo}`)}>
+                      Pay Bill
+                    </Button>
+                  )}
+                </Stack>
+              </TableCell>
+            </TableRow>
           )}
           {relatedPayments.map((p) => (
             <TableRow key={p.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/finance/payments/${p.id}`)}>
@@ -161,7 +173,18 @@ export default function BillDetail() {
         </TableHead>
         <TableBody>
           {relatedDebitNotes.length === 0 && (
-            <TableRow><TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>No debit notes issued</TableCell></TableRow>
+            <TableRow>
+              <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>
+                <Stack sx={{ alignItems: 'center', py: 2, gap: 1.5 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>No debit notes issued</Typography>
+                  {canSettle && (
+                    <Button variant="outlined" size="small" onClick={() => navigate(`/finance/debit-notes/new?bill=${bill.billNo}`)}>
+                      Create Debit Note
+                    </Button>
+                  )}
+                </Stack>
+              </TableCell>
+            </TableRow>
           )}
           {relatedDebitNotes.map((n) => (
             <TableRow key={n.id} hover>

@@ -219,7 +219,18 @@ export default function PODetail() {
             </TableHead>
             <TableBody>
               {poGrns.length === 0 && (
-                <TableRow><TableCell colSpan={4} sx={{ color: 'text.secondary' }}>No goods received yet</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={4} sx={{ color: 'text.secondary' }}>
+                    <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+                      <span>No goods received yet</span>
+                      {(po.status === 'Sent' || po.status === 'Partially Received') && (
+                        <Button size="small" variant="outlined" onClick={() => navigate(`/procurement/grn/new?fromPo=${po.id}`)}>
+                          Receive Goods
+                        </Button>
+                      )}
+                    </Stack>
+                  </TableCell>
+                </TableRow>
               )}
               {poGrns.map((g) => {
                 const delta = daysBetween(po.expectedDelivery, g.receivedDate);

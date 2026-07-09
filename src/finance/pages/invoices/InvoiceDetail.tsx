@@ -54,6 +54,7 @@ export default function InvoiceDetail() {
   const balance = invoiceBalance(invoice);
   const relatedPayments = payments.filter((p) => p.invoiceOrBillRef === invoice.invoiceNo);
   const relatedCreditNotes = creditNotes.filter((n) => n.invoiceNo === invoice.invoiceNo);
+  const canSettle = balance > 0 && !['Draft', 'Proforma', 'Cancelled'].includes(invoice.status);
 
   const overviewTab = (
     <Grid container spacing={2}>
@@ -139,7 +140,18 @@ export default function InvoiceDetail() {
         </TableHead>
         <TableBody>
           {relatedPayments.length === 0 && (
-            <TableRow><TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>No payments recorded yet</TableCell></TableRow>
+            <TableRow>
+              <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>
+                <Stack sx={{ alignItems: 'center', py: 2, gap: 1.5 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>No payments recorded yet</Typography>
+                  {canSettle && (
+                    <Button variant="outlined" size="small" onClick={() => navigate(`/finance/payments/new?invoice=${invoice.invoiceNo}`)}>
+                      Record Payment
+                    </Button>
+                  )}
+                </Stack>
+              </TableCell>
+            </TableRow>
           )}
           {relatedPayments.map((p) => (
             <TableRow key={p.id} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/finance/payments/${p.id}`)}>
@@ -168,7 +180,18 @@ export default function InvoiceDetail() {
         </TableHead>
         <TableBody>
           {relatedCreditNotes.length === 0 && (
-            <TableRow><TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>No credit notes issued</TableCell></TableRow>
+            <TableRow>
+              <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>
+                <Stack sx={{ alignItems: 'center', py: 2, gap: 1.5 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>No credit notes issued</Typography>
+                  {canSettle && (
+                    <Button variant="outlined" size="small" onClick={() => navigate(`/finance/credit-notes/new?invoice=${invoice.invoiceNo}`)}>
+                      Create Credit Note
+                    </Button>
+                  )}
+                </Stack>
+              </TableCell>
+            </TableRow>
           )}
           {relatedCreditNotes.map((n) => (
             <TableRow key={n.id} hover>
