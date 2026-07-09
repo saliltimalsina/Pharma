@@ -66,6 +66,7 @@ type QuoteInput = Pick<
 >;
 
 interface ProcurementContextValue {
+  loading: boolean;
   requisitions: Requisition[];
   vendors: Vendor[];
   rfqs: Rfq[];
@@ -102,6 +103,7 @@ const SYSTEM_ACTOR = 'Procurement Officer';
 let eventSeq = 0;
 
 export function ProcurementProvider({ children }: { children: ReactNode }) {
+  const [loading, setLoading] = useState(true);
   const [requisitions, setRequisitions] = useState<Requisition[]>(seedRequisitions);
   const [vendors, setVendors] = useState<Vendor[]>(seedVendors);
   const [rfqs, setRfqs] = useState<Rfq[]>(seedRfqs);
@@ -146,24 +148,16 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    fetchVendors()
-      .then(setVendors)
-      .catch((e) => console.error('Failed to load vendors', e));
     loadCategoryIds().catch((e) => console.error('Failed to load vendor categories', e));
     loadBusinessTypeIds().catch((e) => console.error('Failed to load business types', e));
-    fetchRequisitions()
-      .then(setRequisitions)
-      .catch((e) => console.error('Failed to load requisitions', e));
     loadDepartmentIds().catch((e) => console.error('Failed to load departments', e));
-    fetchRfqs()
-      .then(setRfqs)
-      .catch((e) => console.error('Failed to load RFQs', e));
-    fetchPurchaseOrders()
-      .then(setPurchaseOrders)
-      .catch((e) => console.error('Failed to load purchase orders', e));
-    fetchGrns()
-      .then(setGrns)
-      .catch((e) => console.error('Failed to load GRNs', e));
+    Promise.allSettled([
+      fetchVendors().then(setVendors).catch((e) => console.error('Failed to load vendors', e)),
+      fetchRequisitions().then(setRequisitions).catch((e) => console.error('Failed to load requisitions', e)),
+      fetchRfqs().then(setRfqs).catch((e) => console.error('Failed to load RFQs', e)),
+      fetchPurchaseOrders().then(setPurchaseOrders).catch((e) => console.error('Failed to load purchase orders', e)),
+      fetchGrns().then(setGrns).catch((e) => console.error('Failed to load GRNs', e)),
+    ]).then(() => setLoading(false));
   }, []);
 
   // Append an audit-trail entry. In-memory only (resets on refresh).
@@ -450,6 +444,7 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   return (
     <ProcurementContext.Provider
       value={{
+        loading,
         requisitions,
         vendors,
         rfqs,

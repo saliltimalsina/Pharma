@@ -81,6 +81,7 @@ export interface StockOutLine {
 }
 
 interface InventoryContextValue {
+  loading: boolean;
   items: Item[];
   transfers: Transfer[];
   adjustments: Adjustment[];
@@ -157,6 +158,7 @@ function deriveStockEntries(batches: Batch[]): StockEntry[] {
 }
 
 export function InventoryProvider({ children }: { children: ReactNode }) {
+  const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<Item[]>(seedItems);
   const [transfers, setTransfers] = useState<Transfer[]>(seedTransfers);
   const [adjustments, setAdjustments] = useState<Adjustment[]>(seedAdjustments);
@@ -166,30 +168,26 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const stockEntries = useMemo(() => deriveStockEntries(batches), [batches]);
 
   useEffect(() => {
-    // Also mutated in place on `mockItems` (see the `warehouses` comment below) -
-    // itemById()/etc. read directly from the mockData module, not this state.
-    fetchItems()
-      .then((rows) => {
-        setItems(rows);
-        mockItems.splice(0, mockItems.length, ...rows);
-      })
-      .catch((e) => console.error('Failed to load items', e));
-    // `warehouses` has no create route anywhere in the app (pure reference
-    // data) - mutated in place here rather than lifted into context, so the
-    // ~20 pages that already do `import { warehouses } from '../data/mockData'`
-    // keep working unchanged and see the real rows once this resolves.
-    fetchWarehouses()
-      .then((rows) => warehouses.splice(0, warehouses.length, ...rows))
-      .catch((e) => console.error('Failed to load warehouses', e));
-    fetchBatches()
-      .then(setBatches)
-      .catch((e) => console.error('Failed to load batches', e));
-    fetchTransfers()
-      .then(setTransfers)
-      .catch((e) => console.error('Failed to load transfers', e));
-    fetchAdjustments()
-      .then(setAdjustments)
-      .catch((e) => console.error('Failed to load adjustments', e));
+    Promise.allSettled([
+      // Also mutated in place on `mockItems` (see the `warehouses` comment below) -
+      // itemById()/etc. read directly from the mockData module, not this state.
+      fetchItems()
+        .then((rows) => {
+          setItems(rows);
+          mockItems.splice(0, mockItems.length, ...rows);
+        })
+        .catch((e) => console.error('Failed to load items', e)),
+      // `warehouses` has no create route anywhere in the app (pure reference
+      // data) - mutated in place here rather than lifted into context, so the
+      // ~20 pages that already do `import { warehouses } from '../data/mockData'`
+      // keep working unchanged and see the real rows once this resolves.
+      fetchWarehouses()
+        .then((rows) => warehouses.splice(0, warehouses.length, ...rows))
+        .catch((e) => console.error('Failed to load warehouses', e)),
+      fetchBatches().then(setBatches).catch((e) => console.error('Failed to load batches', e)),
+      fetchTransfers().then(setTransfers).catch((e) => console.error('Failed to load transfers', e)),
+      fetchAdjustments().then(setAdjustments).catch((e) => console.error('Failed to load adjustments', e)),
+    ]).then(() => setLoading(false));
   }, []);
 
   const refreshBatches: InventoryContextValue['refreshBatches'] = async () => {
@@ -489,6 +487,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   return (
     <InventoryContext.Provider
       value={{
+        loading,
         items,
         transfers,
         adjustments,

@@ -64,6 +64,7 @@ const CURRENT_USER = 'Finance Manager';
 const today = () => new Date().toISOString().slice(0, 10);
 
 interface FinanceContextValue {
+  loading: boolean;
   invoices: Invoice[];
   supplierBills: SupplierBill[];
   payments: Payment[];
@@ -107,6 +108,7 @@ function applyEntry(account: Account, isDebit: boolean, amount: number): Account
 }
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
+  const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<Invoice[]>(seedInvoices);
   const [supplierBills, setSupplierBills] = useState<SupplierBill[]>(seedBills);
   const [payments, setPayments] = useState<Payment[]>(seedPayments);
@@ -121,28 +123,20 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [financeEvents, setFinanceEvents] = useState<FinanceEvent[]>(seedFinanceEvents);
 
   useEffect(() => {
-    // `customers` has no create route (read-only reference data) - mutated in
-    // place here rather than lifted into context, same as `warehouses`/`mockItems`,
-    // so pages that already do `import { customers } from '../data/mockData'`
-    // keep working unchanged and see the real rows once this resolves.
-    fetchCustomers()
-      .then((rows) => mockCustomers.splice(0, mockCustomers.length, ...rows))
-      .catch((e) => console.error('Failed to load customers', e));
-    fetchInvoices()
-      .then(setInvoices)
-      .catch((e) => console.error('Failed to load invoices', e));
-    fetchBills()
-      .then(setSupplierBills)
-      .catch((e) => console.error('Failed to load supplier bills', e));
-    fetchPayments()
-      .then(setPayments)
-      .catch((e) => console.error('Failed to load payments', e));
-    fetchCreditNotes()
-      .then(setCreditNotes)
-      .catch((e) => console.error('Failed to load credit notes', e));
-    fetchDebitNotes()
-      .then(setDebitNotes)
-      .catch((e) => console.error('Failed to load debit notes', e));
+    Promise.allSettled([
+      // `customers` has no create route (read-only reference data) - mutated in
+      // place here rather than lifted into context, same as `warehouses`/`mockItems`,
+      // so pages that already do `import { customers } from '../data/mockData'`
+      // keep working unchanged and see the real rows once this resolves.
+      fetchCustomers()
+        .then((rows) => mockCustomers.splice(0, mockCustomers.length, ...rows))
+        .catch((e) => console.error('Failed to load customers', e)),
+      fetchInvoices().then(setInvoices).catch((e) => console.error('Failed to load invoices', e)),
+      fetchBills().then(setSupplierBills).catch((e) => console.error('Failed to load supplier bills', e)),
+      fetchPayments().then(setPayments).catch((e) => console.error('Failed to load payments', e)),
+      fetchCreditNotes().then(setCreditNotes).catch((e) => console.error('Failed to load credit notes', e)),
+      fetchDebitNotes().then(setDebitNotes).catch((e) => console.error('Failed to load debit notes', e)),
+    ]).then(() => setLoading(false));
   }, []);
 
   // Append an audit-trail entry. The event object is built OUTSIDE the state
@@ -494,6 +488,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   return (
     <FinanceContext.Provider
       value={{
+        loading,
         invoices,
         supplierBills,
         payments,
