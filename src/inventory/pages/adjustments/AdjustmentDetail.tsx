@@ -122,7 +122,7 @@ export default function AdjustmentDetail() {
             <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/adjustments')}>Back</Button>
             {adjustment.status === 'Pending Approval' && (
               <>
-                <Button variant="outlined" color="error" startIcon={<CloseRoundedIcon />} onClick={() => rejectAdjustment(adjustment.id, CURRENT_APPROVER)}>
+                <Button variant="outlined" color="error" startIcon={<CloseRoundedIcon />} onClick={() => rejectAdjustment(adjustment.id)}>
                   Reject
                 </Button>
                 <Button variant="contained" color="success" startIcon={<CheckRoundedIcon />} onClick={() => approveAdjustment(adjustment.id, CURRENT_APPROVER)}>

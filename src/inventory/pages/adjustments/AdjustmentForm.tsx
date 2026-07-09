@@ -15,6 +15,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
+import Alert from '@mui/material/Alert';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
@@ -22,6 +23,7 @@ import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useInventory } from '../../store/InventoryStore';
+import { ApiError } from '../../../shared/api/client';
 import { warehouses } from '../../data/mockData';
 import type { AdjustmentItem, AdjustmentReason } from '../../data/types';
 
@@ -35,7 +37,7 @@ function blankItem(): AdjustmentItem & { key: number } {
 
 export default function AdjustmentForm() {
   const navigate = useNavigate();
-  const { addAdjustment } = useInventory();
+  const { items: catalogItems, addAdjustment } = useInventory();
 
   const [warehouseId, setWarehouseId] = useState(warehouses[0].id);
   const [type, setType] = useState<'Increase' | 'Decrease'>('Decrease');
@@ -51,23 +53,33 @@ export default function AdjustmentForm() {
 
   const canSubmit = reference.trim() !== '' && rows.some((r) => r.itemId.trim() !== '');
 
-  const handleSubmit = () => {
-    const id = addAdjustment({
-      warehouseId,
-      type,
-      reason,
-      reference,
-      notes,
-      date: new Date().toISOString().slice(0, 10),
-      createdBy,
-      items: rows.map((r) => ({
-        itemId: r.itemId,
-        batchNumber: r.batchNumber,
-        currentQty: r.currentQty,
-        actualQty: r.actualQty,
-      })),
-    });
-    navigate(`/inventory/adjustments/${id}`);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setError('');
+    try {
+      const id = await addAdjustment({
+        warehouseId,
+        type,
+        reason,
+        reference,
+        notes,
+        date: new Date().toISOString().slice(0, 10),
+        createdBy,
+        items: rows.map((r) => ({
+          itemId: r.itemId,
+          batchNumber: r.batchNumber,
+          currentQty: r.currentQty,
+          actualQty: r.actualQty,
+        })),
+      });
+      navigate(`/inventory/adjustments/${id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not save the adjustment.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -77,6 +89,12 @@ export default function AdjustmentForm() {
         subtitle="Reconcile physical stock against system stock"
         actions={<Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/adjustments')}>Cancel</Button>}
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Stack spacing={2}>
         <Card variant="outlined">
@@ -140,7 +158,23 @@ export default function AdjustmentForm() {
                   const diff = row.actualQty - row.currentQty;
                   return (
                     <TableRow key={row.key}>
-                      <TableCell><TextField variant="standard" fullWidth placeholder="Product name" value={row.itemId} onChange={(e) => updateRow(row.key, 'itemId', e.target.value)} /></TableCell>
+                      <TableCell>
+                        <TextField
+                          select
+                          variant="standard"
+                          fullWidth
+                          value={row.itemId}
+                          onChange={(e) => updateRow(row.key, 'itemId', e.target.value)}
+                          slotProps={{ select: { displayEmpty: true } }}
+                        >
+                          <MenuItem value="" disabled>
+                            Select item
+                          </MenuItem>
+                          {catalogItems.map((ci) => (
+                            <MenuItem key={ci.id} value={ci.id}>{ci.name}</MenuItem>
+                          ))}
+                        </TextField>
+                      </TableCell>
                       <TableCell><TextField variant="standard" fullWidth placeholder="Batch number" value={row.batchNumber} onChange={(e) => updateRow(row.key, 'batchNumber', e.target.value)} /></TableCell>
                       <TableCell><TextField variant="standard" type="number" fullWidth value={row.currentQty} onChange={(e) => updateRow(row.key, 'currentQty', Number(e.target.value))} /></TableCell>
                       <TableCell><TextField variant="standard" type="number" fullWidth value={row.actualQty} onChange={(e) => updateRow(row.key, 'actualQty', Number(e.target.value))} /></TableCell>
@@ -162,7 +196,7 @@ export default function AdjustmentForm() {
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
           <Button variant="outlined" onClick={() => navigate('/inventory/adjustments')}>Cancel</Button>
-          <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>Submit for Approval</Button>
+          <Button variant="contained" disabled={!canSubmit || submitting} loading={submitting} onClick={handleSubmit}>Submit for Approval</Button>
         </Stack>
       </Stack>
     </Box>

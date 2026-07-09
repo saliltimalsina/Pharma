@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
 import {
   items as seedItems,
+  items as mockItems,
   transfers as seedTransfers,
   adjustments as seedAdjustments,
   batches as seedBatches,
@@ -20,6 +21,20 @@ import {
   reserveStockApi,
   stockOutApi,
 } from './batchApi';
+import {
+  fetchTransfers,
+  createTransfer,
+  approveTransferApi,
+  completeTransferApi,
+  cancelTransferApi,
+} from './transferApi';
+import {
+  fetchAdjustments,
+  createAdjustment,
+  approveAdjustmentApi,
+  rejectAdjustmentApi,
+  type CreateAdjustmentInput,
+} from './adjustmentApi';
 import type {
   Item,
   Transfer,
@@ -77,13 +92,13 @@ interface InventoryContextValue {
   receiveStock: (lines: StockInLine[]) => string[];
   // Issue / consume stock. Deducts available FEFO/FIFO across the item's batches.
   stockOut: (lines: StockOutLine[]) => Promise<void>;
-  addTransfer: (input: NewTransferInput, submit: boolean) => string;
-  approveTransfer: (id: string) => void;
-  completeTransfer: (id: string) => void;
-  cancelTransfer: (id: string) => void;
-  addAdjustment: (input: NewAdjustmentInput) => string;
-  approveAdjustment: (id: string, approver: string) => void;
-  rejectAdjustment: (id: string, approver: string) => void;
+  addTransfer: (input: NewTransferInput, submit: boolean) => Promise<string>;
+  approveTransfer: (id: string) => Promise<void>;
+  completeTransfer: (id: string) => Promise<void>;
+  cancelTransfer: (id: string) => Promise<void>;
+  addAdjustment: (input: NewAdjustmentInput) => Promise<string>;
+  approveAdjustment: (id: string, approver: string) => Promise<void>;
+  rejectAdjustment: (id: string) => Promise<void>;
   reserveStock: (itemId: string, warehouseId: string, qty: number) => Promise<void>;
   releaseReservation: (batchId: string, qty: number) => Promise<void>;
   returnStock: (batchId: string, qty: number) => Promise<void>;
@@ -99,8 +114,6 @@ interface InventoryContextValue {
 const InventoryContext = createContext<InventoryContextValue | null>(null);
 
 let itemSeq = seedItems.length;
-let transferSeq = seedTransfers.length;
-let adjustmentSeq = seedAdjustments.length;
 let batchSeq = seedBatches.length;
 let movementSeq = seedMovements.length;
 
@@ -153,8 +166,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const stockEntries = useMemo(() => deriveStockEntries(batches), [batches]);
 
   useEffect(() => {
+    // Also mutated in place on `mockItems` (see the `warehouses` comment below) -
+    // itemById()/etc. read directly from the mockData module, not this state.
     fetchItems()
-      .then(setItems)
+      .then((rows) => {
+        setItems(rows);
+        mockItems.splice(0, mockItems.length, ...rows);
+      })
       .catch((e) => console.error('Failed to load items', e));
     // `warehouses` has no create route anywhere in the app (pure reference
     // data) - mutated in place here rather than lifted into context, so the
@@ -166,6 +184,12 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     fetchBatches()
       .then(setBatches)
       .catch((e) => console.error('Failed to load batches', e));
+    fetchTransfers()
+      .then(setTransfers)
+      .catch((e) => console.error('Failed to load transfers', e));
+    fetchAdjustments()
+      .then(setAdjustments)
+      .catch((e) => console.error('Failed to load adjustments', e));
   }, []);
 
   const refreshBatches: InventoryContextValue['refreshBatches'] = async () => {
@@ -194,6 +218,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       costingMethod: input.costingMethod === 'FIFO' ? 'fifo' : 'fefo',
     });
     setItems((prev) => [item, ...prev]);
+    mockItems.unshift(item);
     return item.id;
   };
 
@@ -278,119 +303,106 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     logMovements(recs);
   };
 
-  const addTransfer: InventoryContextValue['addTransfer'] = (input, submit) => {
-    transferSeq += 1;
-    const id = `TRF-${String(transferSeq).padStart(3, '0')}`;
-    const transferNumber = `TRF-2026-00${42 + (transferSeq - seedTransfers.length)}`;
-    const transfer: Transfer = {
-      ...input,
-      id,
-      transferNumber,
-      status: submit ? 'Pending Approval' : 'Draft',
-    };
+  const REASON_VALUE: Record<Adjustment['reason'], CreateAdjustmentInput['reason']> = {
+    Damage: 'damage',
+    Loss: 'loss',
+    Theft: 'theft',
+    'Counting Error': 'counting_error',
+    'Expired Items': 'expired_items',
+    'Quality Rejection': 'quality_rejection',
+  };
+
+  const addTransfer: InventoryContextValue['addTransfer'] = async (input, submit) => {
+    const transfer = await createTransfer({
+      fromWarehouseId: Number(input.fromWarehouseId),
+      toWarehouseId: Number(input.toWarehouseId),
+      reason: input.reason,
+      transferDate: input.transferDate,
+      submit,
+      items: input.items.map((it) => ({
+        rawMaterialId: it.itemId,
+        batchNumber: it.batchNumber,
+        currentBin: it.currentBin,
+        quantity: it.quantity,
+        destinationBin: it.destinationBin,
+      })),
+    });
     setTransfers((prev) => [transfer, ...prev]);
-    return id;
+    return transfer.id;
   };
 
-  const approveTransfer: InventoryContextValue['approveTransfer'] = (id) => {
-    setTransfers((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'In Transit' } : t)));
+  const approveTransfer: InventoryContextValue['approveTransfer'] = async (id) => {
+    const updated = await approveTransferApi(id);
+    setTransfers((prev) => prev.map((t) => (t.id === id ? updated : t)));
   };
 
-  // Completing a transfer actually moves quantity: decrement the source-warehouse batch,
-  // create/increment a same-numbered batch in the destination warehouse.
-  const completeTransfer: InventoryContextValue['completeTransfer'] = (id) => {
+  // Completing a transfer actually moves quantity server-side: decrements the source
+  // batch, creates/tops-up a same-numbered batch in the destination warehouse - refresh
+  // batches afterward so Inventory reflects it, and reconstruct movements by diffing.
+  const completeTransfer: InventoryContextValue['completeTransfer'] = async (id) => {
     const transfer = transfers.find((t) => t.id === id);
     if (!transfer) return;
-    let next = [...batches];
+    const before = new Map(batches.map((b) => [b.id, b]));
+    const updated = await completeTransferApi(id);
+    const fresh = await fetchBatches();
     const recs: StockMovement[] = [];
-    for (const line of transfer.items) {
-      if (line.quantity <= 0) continue;
-      const srcIdx = next.findIndex(
-        (b) => b.batchNumber === line.batchNumber && b.warehouseId === transfer.fromWarehouseId,
-      );
-      if (srcIdx < 0) continue;
-      const src = next[srcIdx];
-      const moveQty = Math.min(line.quantity, src.availableQty);
-      if (moveQty <= 0) continue;
-      next[srcIdx] = { ...src, availableQty: src.availableQty - moveQty };
-      const dstIdx = next.findIndex(
-        (b) => b.batchNumber === line.batchNumber && b.warehouseId === transfer.toWarehouseId,
-      );
-      if (dstIdx >= 0) {
-        const dst = next[dstIdx];
-        next[dstIdx] = { ...dst, availableQty: dst.availableQty + moveQty, receivedQty: dst.receivedQty + moveQty };
-      } else {
-        batchSeq += 1;
-        next = [
-          ...next,
-          {
-            ...src,
-            id: `BATCH-${String(batchSeq).padStart(3, '0')}`,
-            warehouseId: transfer.toWarehouseId,
-            bin: line.destinationBin && line.destinationBin.trim() !== '' ? line.destinationBin : deriveBin(transfer.toWarehouseId, batchSeq),
-            receivedQty: moveQty,
-            availableQty: moveQty,
-            reservedQty: 0,
-            damagedQty: 0,
-            returnedQty: 0,
-          },
-        ];
-      }
-      recs.push(makeMovement('Transfer', line.itemId, line.batchNumber, transfer.fromWarehouseId, -moveQty, transfer.transferNumber, transfer.requestedBy));
-      recs.push(makeMovement('Transfer', line.itemId, line.batchNumber, transfer.toWarehouseId, moveQty, transfer.transferNumber, transfer.requestedBy));
+    for (const b of fresh) {
+      const prev = before.get(b.id);
+      const delta = b.availableQty - (prev?.availableQty ?? 0);
+      if (delta !== 0) recs.push(makeMovement('Transfer', b.itemId, b.batchNumber, b.warehouseId, delta, transfer.transferNumber, transfer.requestedBy));
     }
-    setBatches(next);
+    setBatches(fresh);
     logMovements(recs);
-    setTransfers((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'Completed' } : t)));
+    setTransfers((prev) => prev.map((t) => (t.id === id ? updated : t)));
   };
 
-  const cancelTransfer: InventoryContextValue['cancelTransfer'] = (id) => {
-    setTransfers((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'Cancelled' } : t)));
+  const cancelTransfer: InventoryContextValue['cancelTransfer'] = async (id) => {
+    const updated = await cancelTransferApi(id);
+    setTransfers((prev) => prev.map((t) => (t.id === id ? updated : t)));
   };
 
-  const addAdjustment: InventoryContextValue['addAdjustment'] = (input) => {
-    adjustmentSeq += 1;
-    const id = `ADJ-${String(adjustmentSeq).padStart(3, '0')}`;
-    const adjustmentNo = `ADJ-2026-00${18 + (adjustmentSeq - seedAdjustments.length)}`;
-    const adjustment: Adjustment = {
-      ...input,
-      id,
-      adjustmentNo,
-      status: 'Pending Approval',
-      approver: '',
-    };
+  const addAdjustment: InventoryContextValue['addAdjustment'] = async (input) => {
+    const adjustment = await createAdjustment({
+      warehouseId: Number(input.warehouseId),
+      type: input.type === 'Increase' ? 'increase' : 'decrease',
+      reason: REASON_VALUE[input.reason],
+      reference: input.reference,
+      notes: input.notes,
+      date: input.date,
+      items: input.items.map((it) => ({
+        rawMaterialId: it.itemId,
+        batchNumber: it.batchNumber,
+        currentQty: it.currentQty,
+        actualQty: it.actualQty,
+      })),
+    });
     setAdjustments((prev) => [adjustment, ...prev]);
-    return id;
+    return adjustment.id;
   };
 
-  // Approving an adjustment reconciles system stock to the counted actual quantity.
-  const approveAdjustment: InventoryContextValue['approveAdjustment'] = (id, approver) => {
+  // Approving an adjustment reconciles system stock to the counted actual quantity -
+  // the backend applies the delta onto the matching batch server-side.
+  const approveAdjustment: InventoryContextValue['approveAdjustment'] = async (id, approver) => {
     const adjustment = adjustments.find((a) => a.id === id);
+    const before = new Map(batches.map((b) => [b.id, b]));
+    const updated = await approveAdjustmentApi(id);
+    const fresh = await fetchBatches();
     const recs: StockMovement[] = [];
-    if (adjustment) {
-      const next = [...batches];
-      for (const line of adjustment.items) {
-        const idx = next.findIndex(
-          (b) => b.batchNumber === line.batchNumber && b.warehouseId === adjustment.warehouseId,
-        );
-        if (idx < 0) continue;
-        const b = next[idx];
-        const delta = line.actualQty - line.currentQty;
-        next[idx] = { ...b, availableQty: Math.max(0, b.availableQty + delta) };
-        recs.push(makeMovement('Adjustment', line.itemId, line.batchNumber, adjustment.warehouseId, delta, adjustment.adjustmentNo || adjustment.reference, approver));
+    for (const b of fresh) {
+      const prev = before.get(b.id);
+      const delta = b.availableQty - (prev?.availableQty ?? b.availableQty);
+      if (delta !== 0 && adjustment) {
+        recs.push(makeMovement('Adjustment', b.itemId, b.batchNumber, b.warehouseId, delta, adjustment.adjustmentNo || adjustment.reference, approver));
       }
-      setBatches(next);
-      logMovements(recs);
     }
-    setAdjustments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'Approved', approver } : a)),
-    );
+    setBatches(fresh);
+    logMovements(recs);
+    setAdjustments((prev) => prev.map((a) => (a.id === id ? updated : a)));
   };
 
-  const rejectAdjustment: InventoryContextValue['rejectAdjustment'] = (id, approver) => {
-    setAdjustments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'Rejected', approver } : a)),
-    );
+  const rejectAdjustment: InventoryContextValue['rejectAdjustment'] = async (id) => {
+    const updated = await rejectAdjustmentApi(id);
+    setAdjustments((prev) => prev.map((a) => (a.id === id ? updated : a)));
   };
 
   // Reserve stock for an item at a warehouse - the backend allocates across
