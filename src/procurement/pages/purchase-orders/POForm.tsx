@@ -17,6 +17,7 @@ import TableRow from '@mui/material/TableRow';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
+import Alert from '@mui/material/Alert';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
@@ -24,6 +25,8 @@ import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useProcurement } from '../../store/ProcurementStore';
+import { useInventory } from '../../../inventory/store/InventoryStore';
+import { ApiError } from '../../../shared/api/client';
 import { departments } from '../../data/mockData';
 import type { PoItem } from '../../data/types';
 
@@ -50,6 +53,7 @@ export default function POForm() {
   const [searchParams] = useSearchParams();
   const fromRfq = searchParams.get('fromRfq');
   const { vendors, rfqs, addPurchaseOrder } = useProcurement();
+  const { items: catalogItems } = useInventory();
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -107,25 +111,35 @@ export default function POForm() {
   );
   const grandTotal = subtotal - discountTotal + vatTotal + shipping;
 
-  const save = (submit: boolean) => {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async (submit: boolean) => {
     const cleanItems: PoItem[] = items.map(({ key: _key, ...rest }) => rest);
-    const id = addPurchaseOrder(
-      {
-        rfqId: sourceRfq?.id,
-        vendorId,
-        vendorName,
-        date: orderDate,
-        expectedDelivery,
-        currency,
-        warehouse,
-        department,
-        amount: grandTotal,
-        createdBy: approver,
-        items: cleanItems,
-      },
-      submit,
-    );
-    navigate('/procurement/purchase-orders/' + id);
+    setSubmitting(true);
+    setError('');
+    try {
+      const id = await addPurchaseOrder(
+        {
+          rfqId: sourceRfq?.id,
+          vendorId,
+          vendorName,
+          date: orderDate,
+          expectedDelivery,
+          currency,
+          warehouse,
+          department,
+          amount: grandTotal,
+          createdBy: approver,
+          items: cleanItems,
+        },
+        submit,
+      );
+      navigate('/procurement/purchase-orders/' + id);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not save the purchase order.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -137,6 +151,12 @@ export default function POForm() {
           <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement/purchase-orders')}>Cancel</Button>
         }
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Stack spacing={2}>
         <Card variant="outlined">
@@ -212,7 +232,23 @@ export default function POForm() {
               <TableBody>
                 {items.map((row) => (
                   <TableRow key={row.key}>
-                    <TableCell><TextField variant="standard" fullWidth value={row.product} onChange={(e) => updateItem(row.key, 'product', e.target.value)} /></TableCell>
+                    <TableCell>
+                      <TextField
+                        select
+                        variant="standard"
+                        fullWidth
+                        value={row.product}
+                        onChange={(e) => updateItem(row.key, 'product', e.target.value)}
+                        slotProps={{ select: { displayEmpty: true } }}
+                      >
+                        <MenuItem value="" disabled>
+                          Select item
+                        </MenuItem>
+                        {catalogItems.map((ci) => (
+                          <MenuItem key={ci.id} value={ci.id}>{ci.name}</MenuItem>
+                        ))}
+                      </TextField>
+                    </TableCell>
                     <TableCell><TextField variant="standard" fullWidth value={row.description} onChange={(e) => updateItem(row.key, 'description', e.target.value)} /></TableCell>
                     <TableCell><TextField variant="standard" type="number" fullWidth value={row.qty} onChange={(e) => updateItem(row.key, 'qty', Number(e.target.value))} /></TableCell>
                     <TableCell><TextField variant="standard" fullWidth value={row.unit} onChange={(e) => updateItem(row.key, 'unit', e.target.value)} /></TableCell>
@@ -286,8 +322,8 @@ export default function POForm() {
         </Grid>
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
-          <Button variant="outlined" onClick={() => save(false)}>Save as Draft</Button>
-          <Button variant="contained" onClick={() => save(true)}>Submit for Approval</Button>
+          <Button variant="outlined" disabled={submitting} loading={submitting} onClick={() => save(false)}>Save as Draft</Button>
+          <Button variant="contained" disabled={submitting} loading={submitting} onClick={() => save(true)}>Submit for Approval</Button>
         </Stack>
       </Stack>
     </Box>

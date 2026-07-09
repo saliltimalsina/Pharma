@@ -28,6 +28,7 @@ import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import FormField from '../../components/FormField';
 import { useProcurement } from '../../store/ProcurementStore';
+import { useInventory } from '../../../inventory/store/InventoryStore';
 
 const CURRENT_APPROVER = 'Grace Liu';
 
@@ -50,7 +51,9 @@ export default function RequisitionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { requisitions, submitRequisition, approveRequisition, rejectRequisition, completeRequisition } = useProcurement();
+  const { items: catalogItems } = useInventory();
   const req = requisitions.find((r) => r.id === id);
+  const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
@@ -132,7 +135,7 @@ export default function RequisitionDetail() {
         <TableBody>
           {req.items.map((item, i) => (
             <TableRow key={i} hover>
-              <TableCell sx={{ fontWeight: 500 }}>{item.item}</TableCell>
+              <TableCell sx={{ fontWeight: 500 }}>{materialName(item.item)}</TableCell>
               <TableCell>{item.description}</TableCell>
               <TableCell align="right">{item.requiredQty}</TableCell>
               <TableCell>{item.unit}</TableCell>

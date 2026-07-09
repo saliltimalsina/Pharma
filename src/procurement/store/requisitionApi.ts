@@ -64,7 +64,9 @@ function mapRequisition(r: ApiRequisition): Requisition {
     status: STATUS_LABEL[r.status],
     approvedBy: r.approved_by?.name,
     items: (r.items ?? []).map((it) => ({
-      item: it.material?.material_name ?? it.raw_material_id,
+      // Canonical value is the material_code (the join key RFQ/PO creation downstream
+      // send as rawMaterialId) — callers needing a label resolve it against the catalog.
+      item: it.raw_material_id,
       description: '',
       requiredQty: Number(it.quantity_requested),
       unit: it.unit,

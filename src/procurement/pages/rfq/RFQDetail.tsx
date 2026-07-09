@@ -27,6 +27,7 @@ import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import PipelineTracker from '../../components/PipelineTracker';
 import { useProcurement } from '../../store/ProcurementStore';
+import { useInventory } from '../../../inventory/store/InventoryStore';
 import type { Rfq, Vendor } from '../../data/types';
 
 const TAB_INDEX = { overview: 0, items: 1, invited: 2, quotations: 3, comparison: 4, award: 5 };
@@ -132,7 +133,9 @@ export default function RFQDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { rfqs, vendors, purchaseOrders, submitQuote, awardRfq } = useProcurement();
+  const { items: catalogItems } = useInventory();
   const rfq = rfqs.find((r) => r.id === id);
+  const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
   const linkedPo = rfq ? purchaseOrders.find((p) => p.rfqId === rfq.id) : undefined;
   const [activeTab, setActiveTab] = useState(0);
 
@@ -253,7 +256,7 @@ export default function RFQDetail() {
         <TableBody>
           {rfq.items.map((item, i) => (
             <TableRow key={i} hover>
-              <TableCell sx={{ fontWeight: 500 }}>{item.item}</TableCell>
+              <TableCell sx={{ fontWeight: 500 }}>{materialName(item.item)}</TableCell>
               <TableCell>{item.description}</TableCell>
               <TableCell align="right">{item.requiredQty}</TableCell>
               <TableCell>{item.unit}</TableCell>

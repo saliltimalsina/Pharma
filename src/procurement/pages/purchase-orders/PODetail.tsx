@@ -58,7 +58,8 @@ export default function PODetail() {
   const navigate = useNavigate();
   const { purchaseOrders, rfqs, grns, approvePurchaseOrder, sendPurchaseOrder, amendPurchaseOrder } =
     useProcurement();
-  const { batches } = useInventory();
+  const { batches, items: catalogItems } = useInventory();
+  const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
   const po = purchaseOrders.find((p) => p.id === id);
   const linkedRfq = po?.rfqId ? rfqs.find((r) => r.id === po.rfqId) : undefined;
   const linkedGrn = po ? grns.find((g) => g.poNumber === po.poNumber) : undefined;
@@ -165,7 +166,7 @@ export default function PODetail() {
         <TableBody>
           {po.items.map((item, i) => (
             <TableRow key={i} hover>
-              <TableCell sx={{ fontWeight: 500 }}>{item.product}</TableCell>
+              <TableCell sx={{ fontWeight: 500 }}>{materialName(item.product)}</TableCell>
               <TableCell>{item.description}</TableCell>
               <TableCell align="right">{item.qty}</TableCell>
               <TableCell>{item.unit}</TableCell>
@@ -191,7 +192,7 @@ export default function PODetail() {
             return (
               <Box key={i} sx={{ mb: 2 }}>
                 <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="body2">{item.product}</Typography>
+                  <Typography variant="body2">{materialName(item.product)}</Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>{received} / {item.qty} {item.unit}</Typography>
                 </Stack>
                 <LinearProgress variant="determinate" value={pct} color={pct === 100 ? 'success' : 'primary'} />
@@ -333,7 +334,7 @@ export default function PODetail() {
             <TableBody>
               {draftItems.map((item, i) => (
                 <TableRow key={i}>
-                  <TableCell sx={{ fontWeight: 500 }}>{item.product}</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>{materialName(item.product)}</TableCell>
                   <TableCell align="right"><TextField variant="standard" type="number" value={item.qty} onChange={(e) => updateDraft(i, 'qty', Number(e.target.value))} sx={{ width: 80 }} /></TableCell>
                   <TableCell align="right"><TextField variant="standard" type="number" value={item.unitPrice} onChange={(e) => updateDraft(i, 'unitPrice', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
                   <TableCell align="right"><TextField variant="standard" type="number" value={item.discount} onChange={(e) => updateDraft(i, 'discount', Number(e.target.value))} sx={{ width: 70 }} /></TableCell>

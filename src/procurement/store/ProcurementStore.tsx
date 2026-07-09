@@ -16,6 +16,13 @@ import {
   type CreateRequisitionInput,
 } from './requisitionApi';
 import { fetchRfqs, createRfq, submitRfqQuote, awardRfqApi } from './rfqApi';
+import {
+  fetchPurchaseOrders,
+  createPurchaseOrder,
+  approvePurchaseOrderApi,
+  sendPurchaseOrderApi,
+  amendPurchaseOrderApi,
+} from './poApi';
 import type {
   Requisition,
   Vendor,
@@ -24,7 +31,6 @@ import type {
   RfqQuote,
   PurchaseOrder,
   PoItem,
-  PoAmendment,
   Grn,
   ProcurementEvent,
   ProcurementEventType,
@@ -64,10 +70,10 @@ interface ProcurementContextValue {
   addRfq: (input: NewRfqInput, send: boolean) => Promise<string>;
   submitQuote: (rfqId: string, quote: QuoteInput) => Promise<void>;
   awardRfq: (id: string, vendorId: string) => Promise<void>;
-  addPurchaseOrder: (input: NewPoInput, submit: boolean) => string;
-  approvePurchaseOrder: (id: string) => void;
-  sendPurchaseOrder: (id: string) => void;
-  amendPurchaseOrder: (id: string, updatedItems: PoItem[], note: string) => void;
+  addPurchaseOrder: (input: NewPoInput, submit: boolean) => Promise<string>;
+  approvePurchaseOrder: (id: string) => Promise<void>;
+  sendPurchaseOrder: (id: string) => Promise<void>;
+  amendPurchaseOrder: (id: string, updatedItems: PoItem[], note: string) => Promise<void>;
   addGrn: (input: NewGrnInput, complete: boolean) => Grn;
   acceptGrn: (id: string) => void;
 }
@@ -77,18 +83,8 @@ const ProcurementContext = createContext<ProcurementContextValue | null>(null);
 // Actor used for audit events that carry no explicit user (approvals, sends, etc.).
 const SYSTEM_ACTOR = 'Procurement Officer';
 
-let poSeq = seedPurchaseOrders.length;
 let grnSeq = seedGrns.length;
 let eventSeq = 0;
-
-// Amount = Σ line totals (base − discount + VAT), matching POForm's grand-total math.
-function poAmount(items: PoItem[]): number {
-  return items.reduce((sum, it) => {
-    const base = it.qty * it.unitPrice;
-    const discounted = base - (base * it.discount) / 100;
-    return sum + discounted + (discounted * it.vat) / 100;
-  }, 0);
-}
 
 export function ProcurementProvider({ children }: { children: ReactNode }) {
   const [requisitions, setRequisitions] = useState<Requisition[]>(seedRequisitions);
@@ -147,6 +143,9 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     fetchRfqs()
       .then(setRfqs)
       .catch((e) => console.error('Failed to load RFQs', e));
+    fetchPurchaseOrders()
+      .then(setPurchaseOrders)
+      .catch((e) => console.error('Failed to load purchase orders', e));
   }, []);
 
   // Append an audit-trail entry. In-memory only (resets on refresh).
@@ -309,62 +308,64 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     logEvent('Awarded', 'RFQ', `${updated.rfqNo} → ${vendorName}`, SYSTEM_ACTOR);
   };
 
-  const addPurchaseOrder: ProcurementContextValue['addPurchaseOrder'] = (input, submit) => {
-    poSeq += 1;
-    const id = `PO-${String(poSeq).padStart(3, '0')}`;
-    const poNumber = `PO-2026-0${512 + (poSeq - seedPurchaseOrders.length)}`;
-    const po: PurchaseOrder = {
-      ...input,
-      id,
-      poNumber,
-      status: submit ? 'Pending Approval' : 'Draft',
-      items: input.items.map((it) => ({ ...it, receivedQty: it.receivedQty ?? 0 })),
-    };
+  const addPurchaseOrder: ProcurementContextValue['addPurchaseOrder'] = async (input, submit) => {
+    const departmentIds = await loadDepartmentIds();
+    const po = await createPurchaseOrder({
+      rfqId: input.rfqId ? Number(input.rfqId) : undefined,
+      vendorId: Number(input.vendorId),
+      orderDate: input.date,
+      expectedDelivery: input.expectedDelivery,
+      currency: input.currency,
+      warehouse: input.warehouse,
+      departmentId: departmentIds.get(input.department) ?? undefined,
+      submit,
+      items: input.items.map((it) => ({
+        rawMaterialId: it.product,
+        qty: it.qty,
+        unit: it.unit,
+        unitPrice: it.unitPrice,
+        discountPercent: it.discount,
+        vatPercent: it.vat,
+      })),
+    });
     setPurchaseOrders((prev) => [po, ...prev]);
-    logEvent(submit ? 'Submitted' : 'Created', 'Purchase Order', poNumber, input.createdBy);
-    return id;
+    logEvent(submit ? 'Submitted' : 'Created', 'Purchase Order', po.poNumber, input.createdBy);
+    return po.id;
   };
 
-  const approvePurchaseOrder: ProcurementContextValue['approvePurchaseOrder'] = (id) => {
-    const po = purchaseOrders.find((p) => p.id === id);
-    setPurchaseOrders((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'Approved' } : p)));
-    if (po) logEvent('Approved', 'Purchase Order', po.poNumber, SYSTEM_ACTOR);
+  const approvePurchaseOrder: ProcurementContextValue['approvePurchaseOrder'] = async (id) => {
+    const updated = await approvePurchaseOrderApi(id);
+    setPurchaseOrders((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    logEvent('Approved', 'Purchase Order', updated.poNumber, SYSTEM_ACTOR);
   };
 
-  const sendPurchaseOrder: ProcurementContextValue['sendPurchaseOrder'] = (id) => {
-    const po = purchaseOrders.find((p) => p.id === id);
-    setPurchaseOrders((prev) => prev.map((p) => (p.id === id ? { ...p, status: 'Sent' } : p)));
-    if (po) logEvent('Sent', 'Purchase Order', po.poNumber, SYSTEM_ACTOR);
+  const sendPurchaseOrder: ProcurementContextValue['sendPurchaseOrder'] = async (id) => {
+    const updated = await sendPurchaseOrderApi(id);
+    setPurchaseOrders((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    logEvent('Sent', 'Purchase Order', updated.poNumber, SYSTEM_ACTOR);
   };
 
-  // Amend line quantities/prices while a PO is still Draft or Pending Approval.
-  // Recomputes amount and records the change on the PO's amendment trail.
-  const amendPurchaseOrder: ProcurementContextValue['amendPurchaseOrder'] = (
+  // Amend line quantities/prices while a PO is still Draft or Pending Approval -
+  // the backend recomputes the amount and appends to the amendment trail.
+  const amendPurchaseOrder: ProcurementContextValue['amendPurchaseOrder'] = async (
     id,
     updatedItems,
     note,
   ) => {
-    const po = purchaseOrders.find((p) => p.id === id);
-    setPurchaseOrders((prev) =>
-      prev.map((p) => {
-        if (p.id !== id) return p;
-        if (p.status !== 'Draft' && p.status !== 'Pending Approval') return p;
-        const amendment: PoAmendment = {
-          date: new Date().toISOString(),
-          note,
-          changedBy: p.createdBy,
-        };
-        return {
-          ...p,
-          items: updatedItems,
-          amount: poAmount(updatedItems),
-          amendments: [...(p.amendments ?? []), amendment],
-        };
-      }),
+    const updated = await amendPurchaseOrderApi(
+      id,
+      note,
+      updatedItems.map((it) => ({
+        rawMaterialId: it.product,
+        qty: it.qty,
+        unit: it.unit,
+        unitPrice: it.unitPrice,
+        discountPercent: it.discount,
+        vatPercent: it.vat,
+      })),
     );
-    if (po && (po.status === 'Draft' || po.status === 'Pending Approval')) {
-      logEvent('Amended', 'Purchase Order', po.poNumber, po.createdBy);
-    }
+    setPurchaseOrders((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    logEvent('Amended', 'Purchase Order', updated.poNumber, updated.createdBy);
   };
 
   // Persist a GRN, then roll its accepted quantities back onto the matching PO

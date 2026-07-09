@@ -81,7 +81,9 @@ function mapRfq(r: ApiRfq): Rfq {
     status: STATUS_LABEL[r.status],
     invitedVendors: (r.invited_vendors ?? []).map((v) => String(v.id)),
     items: (r.items ?? []).map((it) => ({
-      item: it.material?.material_name ?? it.raw_material_id,
+      // Canonical value is the material_code (the join key PO creation downstream
+      // sends as rawMaterialId) — callers needing a label resolve it against the catalog.
+      item: it.raw_material_id,
       description: '',
       requiredQty: Number(it.quantity_requested),
       unit: it.unit,
