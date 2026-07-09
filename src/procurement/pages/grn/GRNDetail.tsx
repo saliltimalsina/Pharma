@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
@@ -22,8 +23,7 @@ import DetailTabs from '../../components/DetailTabs';
 import PipelineTracker from '../../components/PipelineTracker';
 import { useProcurement } from '../../store/ProcurementStore';
 import { useInventory } from '../../../inventory/store/InventoryStore';
-import type { StockInLine } from '../../../inventory/store/InventoryStore';
-import { warehouses as inventoryWarehouses } from '../../../inventory/data/mockData';
+import { ApiError } from '../../../shared/api/client';
 
 function LabeledValue({ label, value }: { label: string; value?: string }) {
   return (
@@ -38,20 +38,12 @@ function daysBetween(from: string, to: string): number {
   return Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000);
 }
 
-// Map a GRN warehouse label (e.g. "Main Warehouse - WH01") to an inventory warehouse id.
-function resolveWarehouseId(label: string): string {
-  const l = label.toLowerCase();
-  const match = inventoryWarehouses.find(
-    (wh) => l.includes(wh.name.toLowerCase()) || l.includes(wh.code.toLowerCase()),
-  );
-  return match?.id ?? 'WH-01';
-}
-
 export default function GRNDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { grns, purchaseOrders, rfqs, acceptGrn } = useProcurement();
-  const { items: inventoryItems, batches, receiveStock } = useInventory();
+  const { items: catalogItems, batches, refreshBatches } = useInventory();
+  const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
   const grn = grns.find((g) => g.id === id);
   const linkedPo = grn ? purchaseOrders.find((p) => p.poNumber === grn.poNumber) : undefined;
   const linkedRfq = linkedPo?.rfqId ? rfqs.find((r) => r.id === linkedPo.rfqId) : undefined;
@@ -102,30 +94,22 @@ export default function GRNDetail() {
       </Alert>
     ) : null;
 
-  // Complete a draft/pending GRN: advance status + roll accepted qty onto the PO,
-  // and cascade accepted goods into inventory stock (same mapping as GRNForm).
-  const handleComplete = () => {
-    const stockLines: StockInLine[] = [];
-    for (const line of grn.items) {
-      if (line.acceptedQty <= 0) continue;
-      const invItem = inventoryItems.find(
-        (it) => it.name.toLowerCase() === line.product.toLowerCase(),
-      );
-      if (!invItem) continue;
-      stockLines.push({
-        itemId: invItem.id,
-        batchNumber: line.batchNumber,
-        warehouseId: resolveWarehouseId(grn.warehouse),
-        quantity: line.acceptedQty,
-        expiryDate: line.expiryDate,
-        supplierName: grn.vendorName,
-        poNumber: grn.poNumber,
-        grnNumber: grn.grnNumber,
-        qcStatus: 'Under Inspection',
-      });
+  const [completing, setCompleting] = useState(false);
+  const [error, setError] = useState('');
+
+  // Complete a draft/pending GRN - the backend rolls accepted qty onto the PO and
+  // creates under-inspection batches server-side, in one transaction.
+  const handleComplete = async () => {
+    setCompleting(true);
+    setError('');
+    try {
+      await acceptGrn(grn.id);
+      await refreshBatches();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not complete the GRN.');
+    } finally {
+      setCompleting(false);
     }
-    if (stockLines.length) receiveStock(stockLines);
-    acceptGrn(grn.id);
   };
 
   const overviewTab = (
@@ -197,7 +181,7 @@ export default function GRNDetail() {
         <TableBody>
           {grn.items.map((item, i) => (
             <TableRow key={i} hover>
-              <TableCell sx={{ fontWeight: 500 }}>{item.product}</TableCell>
+              <TableCell sx={{ fontWeight: 500 }}>{materialName(item.product)}</TableCell>
               <TableCell align="right">{item.orderedQty}</TableCell>
               <TableCell align="right">{item.receivedQty}</TableCell>
               <TableCell align="right">{item.acceptedQty}</TableCell>
@@ -247,7 +231,7 @@ export default function GRNDetail() {
             <Grid key={i} size={{ xs: 12, sm: 6, md: 4 }}>
               <Card variant="outlined">
                 <CardContent>
-                  <Typography variant="subtitle2" gutterBottom>{item.product}</Typography>
+                  <Typography variant="subtitle2" gutterBottom>{materialName(item.product)}</Typography>
                   <Stack spacing={1}>
                     <LabeledValue label="Batch Number" value={item.batchNumber} />
                     <LabeledValue label="Expiry Date" value={item.expiryDate} />
@@ -273,6 +257,8 @@ export default function GRNDetail() {
               <Button
                 variant="contained"
                 startIcon={<CheckCircleRoundedIcon />}
+                disabled={completing}
+                loading={completing}
                 onClick={handleComplete}
               >
                 Complete Receipt
@@ -281,6 +267,11 @@ export default function GRNDetail() {
           </>
         }
       />
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
       <PipelineTracker
         current="grn"
         requisitionId={linkedRfq?.requisitionId}

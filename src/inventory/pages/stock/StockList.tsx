@@ -135,9 +135,9 @@ export default function StockList() {
     setReserveQty(0);
   };
 
-  const confirmReserve = () => {
+  const confirmReserve = async () => {
     if (reserveTarget && reserveQty > 0) {
-      reserveStock(reserveTarget.itemId, reserveTarget.warehouseId, reserveQty);
+      await reserveStock(reserveTarget.itemId, reserveTarget.warehouseId, reserveQty);
     }
     setReserveTarget(null);
   };

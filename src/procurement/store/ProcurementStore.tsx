@@ -23,6 +23,7 @@ import {
   sendPurchaseOrderApi,
   amendPurchaseOrderApi,
 } from './poApi';
+import { fetchGrns, createGrn, completeGrnApi, type GrnItemInput } from './grnApi';
 import type {
   Requisition,
   Vendor,
@@ -32,6 +33,8 @@ import type {
   PurchaseOrder,
   PoItem,
   Grn,
+  GrnItem,
+  GrnInspectionResult,
   ProcurementEvent,
   ProcurementEventType,
   ProcurementEntity,
@@ -44,7 +47,16 @@ type NewRfqInput = Omit<Rfq, 'id' | 'rfqNo' | 'status' | 'quotes' | 'awardedVend
   quotes?: RfqQuote[];
 };
 type NewPoInput = Omit<PurchaseOrder, 'id' | 'poNumber' | 'status'>;
-type NewGrnInput = Omit<Grn, 'id' | 'grnNumber' | 'status'>;
+// vendorName/poNumber/warehouse label aren't sent - the backend resolves them from
+// poId/warehouseId and returns the full nested record.
+type NewGrnInput = {
+  poId: string;
+  warehouseId: string;
+  receivedDate: string;
+  deliveryNote: string;
+  items: GrnItem[];
+  inspection: GrnInspectionResult[];
+};
 
 // A quote as entered by a user on RFQDetail; score/submitted are derived by the store.
 type QuoteInput = Pick<
@@ -74,8 +86,8 @@ interface ProcurementContextValue {
   approvePurchaseOrder: (id: string) => Promise<void>;
   sendPurchaseOrder: (id: string) => Promise<void>;
   amendPurchaseOrder: (id: string, updatedItems: PoItem[], note: string) => Promise<void>;
-  addGrn: (input: NewGrnInput, complete: boolean) => Grn;
-  acceptGrn: (id: string) => void;
+  addGrn: (input: NewGrnInput, complete: boolean) => Promise<Grn>;
+  acceptGrn: (id: string) => Promise<void>;
 }
 
 const ProcurementContext = createContext<ProcurementContextValue | null>(null);
@@ -83,7 +95,6 @@ const ProcurementContext = createContext<ProcurementContextValue | null>(null);
 // Actor used for audit events that carry no explicit user (approvals, sends, etc.).
 const SYSTEM_ACTOR = 'Procurement Officer';
 
-let grnSeq = seedGrns.length;
 let eventSeq = 0;
 
 export function ProcurementProvider({ children }: { children: ReactNode }) {
@@ -146,6 +157,9 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     fetchPurchaseOrders()
       .then(setPurchaseOrders)
       .catch((e) => console.error('Failed to load purchase orders', e));
+    fetchGrns()
+      .then(setGrns)
+      .catch((e) => console.error('Failed to load GRNs', e));
   }, []);
 
   // Append an audit-trail entry. In-memory only (resets on refresh).
@@ -368,47 +382,48 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     logEvent('Amended', 'Purchase Order', updated.poNumber, updated.createdBy);
   };
 
-  // Persist a GRN, then roll its accepted quantities back onto the matching PO
-  // and advance the PO status (Partially Received / Completed).
-  const addGrn: ProcurementContextValue['addGrn'] = (input, complete) => {
-    grnSeq += 1;
-    const id = `GRN-${String(grnSeq).padStart(3, '0')}`;
-    const grnNumber = `GRN-2026-0${311 + (grnSeq - seedGrns.length)}`;
-    const grn: Grn = {
-      ...input,
-      id,
-      grnNumber,
-      status: complete ? 'Completed' : 'Pending',
-    };
+  // Refetch POs so a just-completed GRN's roll-up (receivedQty / Partially
+  // Received / Completed) shows up without a full page reload.
+  const refreshPurchaseOrders = () => {
+    fetchPurchaseOrders()
+      .then(setPurchaseOrders)
+      .catch((e) => console.error('Failed to refresh purchase orders', e));
+  };
+
+  // Persist a GRN - completing it rolls accepted quantities onto the PO and
+  // creates under-inspection batches, all server-side in one transaction.
+  const addGrn: ProcurementContextValue['addGrn'] = async (input, complete) => {
+    const grn = await createGrn({
+      purchaseOrderId: Number(input.poId),
+      receivedDate: input.receivedDate,
+      warehouseId: Number(input.warehouseId),
+      deliveryNote: input.deliveryNote || undefined,
+      complete,
+      items: input.items.map(
+        (it): GrnItemInput => ({
+          rawMaterialId: it.product,
+          orderedQty: it.orderedQty,
+          receivedQty: it.receivedQty,
+          acceptedQty: it.acceptedQty,
+          rejectedQty: it.rejectedQty,
+          batchNumber: it.batchNumber,
+          expiryDate: it.expiryDate || undefined,
+        }),
+      ),
+      inspection: input.inspection,
+    });
     setGrns((prev) => [grn, ...prev]);
-    if (complete) applyGrnToPo(grn);
-    logEvent(complete ? 'Received' : 'Created', 'GRN', grnNumber, input.receivedBy);
+    if (complete) refreshPurchaseOrders();
+    logEvent(complete ? 'Received' : 'Created', 'GRN', grn.grnNumber, SYSTEM_ACTOR);
     return grn;
   };
 
-  const acceptGrn: ProcurementContextValue['acceptGrn'] = (id) => {
-    const grn = grns.find((g) => g.id === id);
-    setGrns((prev) => prev.map((g) => (g.id === id ? { ...g, status: 'Completed' } : g)));
-    if (grn) {
-      applyGrnToPo({ ...grn, status: 'Completed' });
-      logEvent('Received', 'GRN', grn.grnNumber, grn.receivedBy);
-    }
+  const acceptGrn: ProcurementContextValue['acceptGrn'] = async (id) => {
+    const grn = await completeGrnApi(id);
+    setGrns((prev) => prev.map((g) => (g.id === id ? grn : g)));
+    refreshPurchaseOrders();
+    logEvent('Received', 'GRN', grn.grnNumber, SYSTEM_ACTOR);
   };
-
-  function applyGrnToPo(grn: Grn) {
-    setPurchaseOrders((prev) =>
-      prev.map((po) => {
-        if (po.poNumber !== grn.poNumber) return po;
-        const items = po.items.map((it) => {
-          const line = grn.items.find((g) => g.product === it.product);
-          if (!line) return it;
-          return { ...it, receivedQty: (it.receivedQty ?? 0) + line.acceptedQty };
-        });
-        const fullyReceived = items.every((it) => (it.receivedQty ?? 0) >= it.qty);
-        return { ...po, items, status: fullyReceived ? 'Completed' : 'Partially Received' };
-      }),
-    );
-  }
 
   return (
     <ProcurementContext.Provider

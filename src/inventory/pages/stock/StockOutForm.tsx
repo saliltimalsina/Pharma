@@ -20,6 +20,7 @@ import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useInventory } from '../../store/InventoryStore';
 import type { StockOutLine } from '../../store/InventoryStore';
+import { ApiError } from '../../../shared/api/client';
 import { warehouses, itemById } from '../../data/mockData';
 import { allocateByCosting } from '../../data/costing';
 
@@ -55,15 +56,25 @@ export default function StockOutForm() {
   const isComplete = (r: OutRow) => r.itemId !== '' && r.quantity > 0;
   const canSubmit = rows.some(isComplete);
 
-  const handleSubmit = () => {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
     const lines: StockOutLine[] = rows.filter(isComplete).map((r) => ({
       itemId: r.itemId,
       warehouseId: r.warehouseId,
       quantity: r.quantity,
       reference: [r.reason, r.reference].filter(Boolean).join(' · '),
     }));
-    stockOut(lines);
-    navigate('/inventory/stock');
+    setSubmitting(true);
+    setError('');
+    try {
+      await stockOut(lines);
+      navigate('/inventory/stock');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not issue stock.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -73,6 +84,12 @@ export default function StockOutForm() {
         subtitle="Issue or consume stock — deducts on-hand FEFO/FIFO and records an Out movement"
         actions={<Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/inventory/stock')}>Cancel</Button>}
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Stack spacing={2}>
         {rows.map((row, index) => {
@@ -162,7 +179,7 @@ export default function StockOutForm() {
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
           <Button variant="outlined" onClick={() => navigate('/inventory/stock')}>Cancel</Button>
-          <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>Issue Stock</Button>
+          <Button variant="contained" disabled={!canSubmit || submitting} loading={submitting} onClick={handleSubmit}>Issue Stock</Button>
         </Stack>
       </Stack>
     </Box>

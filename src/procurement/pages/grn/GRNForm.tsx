@@ -17,14 +17,15 @@ import TableRow from '@mui/material/TableRow';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
+import Alert from '@mui/material/Alert';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useProcurement } from '../../store/ProcurementStore';
 import { useInventory } from '../../../inventory/store/InventoryStore';
-import type { StockInLine } from '../../../inventory/store/InventoryStore';
 import { warehouses as inventoryWarehouses } from '../../../inventory/data/mockData';
+import { ApiError } from '../../../shared/api/client';
 import type { GrnItem, GrnInspectionResult, PurchaseOrder } from '../../data/types';
 
 const inspectionChecks = ['Packaging', 'Temperature', 'Damage', 'Quality'];
@@ -42,13 +43,14 @@ function linesFromPo(po: PurchaseOrder): GrnItem[] {
   }));
 }
 
-// Map a GRN warehouse label (e.g. "Main Warehouse - WH01") to an inventory warehouse id.
+// Default the receiving warehouse from the PO's warehouse label (e.g. "Main
+// Warehouse - WH01") by matching it against the real warehouse catalog.
 function resolveWarehouseId(label: string): string {
   const l = label.toLowerCase();
   const match = inventoryWarehouses.find(
     (wh) => l.includes(wh.name.toLowerCase()) || l.includes(wh.code.toLowerCase()),
   );
-  return match?.id ?? 'WH-01';
+  return match?.id ?? inventoryWarehouses[0]?.id ?? '';
 }
 
 export default function GRNForm() {
@@ -56,7 +58,8 @@ export default function GRNForm() {
   const [searchParams] = useSearchParams();
   const fromPo = searchParams.get('fromPo');
   const { purchaseOrders, addGrn } = useProcurement();
-  const { items: inventoryItems, receiveStock } = useInventory();
+  const { items: catalogItems, refreshBatches } = useInventory();
+  const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -75,9 +78,8 @@ export default function GRNForm() {
   const po = purchaseOrders.find((p) => p.id === poId) ?? purchaseOrders[0];
 
   const [lines, setLines] = useState<GrnItem[]>(() => linesFromPo(po));
-  const [warehouse, setWarehouse] = useState(po.warehouse);
+  const [warehouseId, setWarehouseId] = useState(() => resolveWarehouseId(po.warehouse));
   const [receivedDate, setReceivedDate] = useState(today);
-  const [receivedBy, setReceivedBy] = useState('David Kim');
   const [deliveryNote, setDeliveryNote] = useState('');
   const [checks, setChecks] = useState<Record<string, string>>({
     Packaging: 'pass',
@@ -90,57 +92,43 @@ export default function GRNForm() {
     setPoId(newId);
     const newPo = purchaseOrders.find((p) => p.id === newId) ?? purchaseOrders[0];
     setLines(linesFromPo(newPo));
-    setWarehouse(newPo.warehouse);
+    setWarehouseId(resolveWarehouseId(newPo.warehouse));
   };
 
   const updateLine = (index: number, field: keyof GrnItem, value: string | number) =>
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, [field]: value } : l)));
 
-  const save = (complete: boolean) => {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async (complete: boolean) => {
     const grnItems: GrnItem[] = lines.map((l) => ({ ...l }));
     const inspection: GrnInspectionResult[] = inspectionChecks.map((check) => ({
       check,
       result: checks[check] === 'fail' ? 'fail' : 'pass',
     }));
-    const grn = addGrn(
-      {
-        poNumber: po.poNumber,
-        vendorName: po.vendorName,
-        warehouse,
-        receivedDate,
-        receivedBy,
-        deliveryNote,
-        items: grnItems,
-        inspection,
-      },
-      complete,
-    );
-
-    // Cross-module cascade: on completion, roll accepted goods into inventory stock.
-    if (complete) {
-      const stockLines: StockInLine[] = [];
-      for (const line of grnItems) {
-        if (line.acceptedQty <= 0) continue;
-        const invItem = inventoryItems.find(
-          (it) => it.name.toLowerCase() === line.product.toLowerCase(),
-        );
-        if (!invItem) continue;
-        stockLines.push({
-          itemId: invItem.id,
-          batchNumber: line.batchNumber,
-          warehouseId: resolveWarehouseId(warehouse),
-          quantity: line.acceptedQty,
-          expiryDate: line.expiryDate,
-          supplierName: po.vendorName,
-          poNumber: po.poNumber,
-          grnNumber: grn.grnNumber,
-          qcStatus: 'Under Inspection',
-        });
-      }
-      if (stockLines.length) receiveStock(stockLines);
+    setSubmitting(true);
+    setError('');
+    try {
+      const grn = await addGrn(
+        {
+          poId: po.id,
+          warehouseId,
+          receivedDate,
+          deliveryNote,
+          items: grnItems,
+          inspection,
+        },
+        complete,
+      );
+      // Completing rolls accepted qty onto the PO and creates under-inspection
+      // batches server-side - refresh so Inventory sees them right away.
+      if (complete) await refreshBatches();
+      navigate('/procurement/grn/' + grn.id);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not save the GRN.');
+      setSubmitting(false);
     }
-
-    navigate('/procurement/grn/' + grn.id);
   };
 
   return (
@@ -153,13 +141,19 @@ export default function GRNForm() {
         }
       />
 
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
       <Stack spacing={2}>
         <Card variant="outlined">
           <CardHeader title="General" slotProps={{ title: { variant: 'subtitle2' } }} />
           <CardContent sx={{ pt: 0 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" label="GRN Number" value="GRN-2026-0312 (auto)" disabled />
+                <FormField fullWidth size="small" label="GRN Number" value="Auto-generated" disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormSelectField fullWidth size="small" label="Purchase Order" value={poId} onChange={(e) => handlePoChange(e.target.value)}>
@@ -172,13 +166,14 @@ export default function GRNForm() {
                 <FormField fullWidth size="small" label="Vendor" value={po.vendorName} disabled />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" label="Warehouse" value={warehouse} onChange={(e) => setWarehouse(e.target.value)} />
+                <FormSelectField fullWidth size="small" label="Warehouse" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                  {inventoryWarehouses.map((w) => (
+                    <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>
+                  ))}
+                </FormSelectField>
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormField fullWidth size="small" type="date" label="Received Date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <FormField fullWidth size="small" label="Received By" value={receivedBy} onChange={(e) => setReceivedBy(e.target.value)} />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormField fullWidth size="small" label="Delivery Note" placeholder="DN-xxxxx" value={deliveryNote} onChange={(e) => setDeliveryNote(e.target.value)} />
@@ -205,7 +200,7 @@ export default function GRNForm() {
               <TableBody>
                 {lines.map((line, i) => (
                   <TableRow key={i}>
-                    <TableCell sx={{ fontWeight: 500 }}>{line.product}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>{materialName(line.product)}</TableCell>
                     <TableCell align="right">{line.orderedQty} {po.items[i]?.unit}</TableCell>
                     <TableCell align="right"><TextField variant="standard" type="number" value={line.receivedQty} onChange={(e) => updateLine(i, 'receivedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
                     <TableCell align="right"><TextField variant="standard" type="number" value={line.acceptedQty} onChange={(e) => updateLine(i, 'acceptedQty', Number(e.target.value))} sx={{ width: 90 }} /></TableCell>
@@ -242,8 +237,8 @@ export default function GRNForm() {
         </Card>
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
-          <Button variant="outlined" onClick={() => save(false)}>Save as Draft</Button>
-          <Button variant="contained" onClick={() => save(true)}>Complete Receipt</Button>
+          <Button variant="outlined" disabled={submitting} loading={submitting} onClick={() => save(false)}>Save as Draft</Button>
+          <Button variant="contained" disabled={submitting} loading={submitting} onClick={() => save(true)}>Complete Receipt</Button>
         </Stack>
       </Stack>
     </Box>
