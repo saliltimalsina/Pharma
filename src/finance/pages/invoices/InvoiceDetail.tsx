@@ -26,6 +26,7 @@ import DetailTabs from '../../components/DetailTabs';
 import { useFinance } from '../../store/FinanceStore';
 import { customerById, invoiceBalance } from '../../data/mockData';
 import { ApiError } from '../../../shared/api/client';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -45,12 +46,16 @@ function lineTotal(line: { quantity: number; unitPrice: number; discount: number
 export default function InvoiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { invoices, payments, creditNotes, convertProforma, cancelInvoice } = useFinance();
+  const { invoices, payments, creditNotes, convertProforma, cancelInvoice, loading } = useFinance();
   const invoice = invoices.find((i) => i.id === id);
 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState('');
+
+  if (loading && !invoice) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!invoice) {
     return (

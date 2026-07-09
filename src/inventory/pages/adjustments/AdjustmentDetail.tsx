@@ -18,6 +18,7 @@ import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useInventory } from '../../store/InventoryStore';
 import { itemById, warehouseById } from '../../data/mockData';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 
 const CURRENT_APPROVER = 'David Kim';
 
@@ -33,8 +34,12 @@ function LabeledValue({ label, value }: { label: string; value?: string }) {
 export default function AdjustmentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { adjustments, approveAdjustment, rejectAdjustment } = useInventory();
+  const { loading, adjustments, approveAdjustment, rejectAdjustment } = useInventory();
   const adjustment = adjustments.find((a) => a.id === id);
+
+  if (loading && !adjustment) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!adjustment) {
     return (

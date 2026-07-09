@@ -34,7 +34,7 @@ const columns: GridColDef[] = [
 
 export default function DebitNoteList() {
   const navigate = useNavigate();
-  const { debitNotes } = useFinance();
+  const { debitNotes, loading } = useFinance();
 
   const rows = useMemo(
     () =>
@@ -64,7 +64,7 @@ export default function DebitNoteList() {
       />
 
       <Card variant="outlined" sx={{ height: 560 }}>
-        <FinanceDataGrid rows={rows} columns={columns} />
+        <FinanceDataGrid rows={rows} columns={columns} loading={loading} />
       </Card>
     </Box>
   );

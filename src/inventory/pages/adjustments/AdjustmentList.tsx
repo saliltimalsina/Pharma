@@ -33,7 +33,7 @@ const columns: GridColDef[] = [
 
 export default function AdjustmentList() {
   const navigate = useNavigate();
-  const { adjustments } = useInventory();
+  const { loading, adjustments } = useInventory();
   const [warehouse, setWarehouse] = useState('All');
   const [reason, setReason] = useState('All');
 
@@ -85,6 +85,7 @@ export default function AdjustmentList() {
         <InventoryDataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           onRowClick={(params) => navigate(`/inventory/adjustments/${params.id}`)}
           sx={{ cursor: 'pointer' }}
         />

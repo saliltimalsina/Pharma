@@ -33,6 +33,7 @@ import PipelineTracker from '../../components/PipelineTracker';
 import { useProcurement } from '../../store/ProcurementStore';
 import { useInventory } from '../../../inventory/store/InventoryStore';
 import { ApiError } from '../../../shared/api/client';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 import type { PoItem } from '../../data/types';
 
 function LabeledValue({ label, value }: { label: string; value?: string }) {
@@ -59,7 +60,7 @@ function daysBetween(from: string, to: string): number {
 export default function PODetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { purchaseOrders, rfqs, grns, approvePurchaseOrder, sendPurchaseOrder, amendPurchaseOrder, cancelPurchaseOrder } =
+  const { purchaseOrders, rfqs, grns, approvePurchaseOrder, sendPurchaseOrder, amendPurchaseOrder, cancelPurchaseOrder, loading } =
     useProcurement();
   const { batches, items: catalogItems } = useInventory();
   const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
@@ -74,6 +75,10 @@ export default function PODetail() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState('');
+
+  if (loading && !po) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!po) {
     return (

@@ -28,6 +28,7 @@ import DetailTabs from '../../components/DetailTabs';
 import { useFinance } from '../../store/FinanceStore';
 import { billBalance } from '../../data/mockData';
 import { ApiError } from '../../../shared/api/client';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -41,12 +42,16 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
 export default function BillDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { supplierBills, approveBill, cancelBill, payments, debitNotes } = useFinance();
+  const { supplierBills, approveBill, cancelBill, payments, debitNotes, loading } = useFinance();
   const bill = supplierBills.find((b) => b.id === id);
 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState('');
+
+  if (loading && !bill) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!bill) {
     return (

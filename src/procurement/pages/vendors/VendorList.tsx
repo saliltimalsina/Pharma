@@ -78,7 +78,7 @@ const columns: GridColDef[] = [
 
 export default function VendorList() {
   const navigate = useNavigate();
-  const { vendors, purchaseOrders, grns, setVendorStatus } = useProcurement();
+  const { vendors, purchaseOrders, grns, setVendorStatus, loading } = useProcurement();
   const [category, setCategory] = useState('All');
   const [status, setStatus] = useState('All');
   const [country, setCountry] = useState('All');
@@ -209,6 +209,7 @@ export default function VendorList() {
         <ProcurementDataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           checkboxSelection
           isRowSelectable={(params) => params.row.status === 'Pending Approval'}
           rowSelectionModel={selectionModel}

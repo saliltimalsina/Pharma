@@ -44,7 +44,7 @@ const columns: GridColDef[] = [
 
 export default function POList() {
   const navigate = useNavigate();
-  const { vendors, purchaseOrders, approvePurchaseOrder } = useProcurement();
+  const { vendors, purchaseOrders, approvePurchaseOrder, loading } = useProcurement();
   const [vendor, setVendor] = useState('All');
   const [status, setStatus] = useState('All');
   const [department, setDepartment] = useState('All');
@@ -182,6 +182,7 @@ export default function POList() {
         <ProcurementDataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           checkboxSelection
           isRowSelectable={(params) => params.row.status === 'Pending Approval'}
           rowSelectionModel={selectionModel}

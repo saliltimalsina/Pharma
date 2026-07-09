@@ -37,6 +37,7 @@ import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useProcurement } from '../../store/ProcurementStore';
 import { vendorPerformance } from '../../data/vendorPerformance';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 import type { Vendor, VendorDoc } from '../../data/types';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
@@ -124,11 +125,15 @@ function DocumentsPanel({ vendor }: { vendor: Vendor }) {
 export default function VendorProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { vendors, purchaseOrders, rfqs, grns, setVendorStatus } = useProcurement();
+  const { vendors, purchaseOrders, rfqs, grns, setVendorStatus, loading } = useProcurement();
   const vendor = vendors.find((v) => v.id === id);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState('');
   const [confirmBlacklist, setConfirmBlacklist] = useState(false);
+
+  if (loading && !vendor) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!vendor) {
     return (

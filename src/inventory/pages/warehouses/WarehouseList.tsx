@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import { GridColDef } from '@mui/x-data-grid';
 import PageHeader from '../../components/PageHeader';
 import InventoryDataGrid from '../../components/InventoryDataGrid';
+import { useInventory } from '../../store/InventoryStore';
 import { warehouses } from '../../data/mockData';
 
 const columns: GridColDef[] = [
@@ -47,6 +48,7 @@ const columns: GridColDef[] = [
 
 export default function WarehouseList() {
   const navigate = useNavigate();
+  const { loading } = useInventory();
 
   const rows = warehouses.map((w) => ({
     id: w.id,
@@ -69,6 +71,7 @@ export default function WarehouseList() {
         <InventoryDataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           onRowClick={(params) => navigate(`/inventory/warehouses/${params.id}`)}
           sx={{ cursor: 'pointer' }}
         />

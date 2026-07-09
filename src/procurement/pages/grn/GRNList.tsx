@@ -32,7 +32,7 @@ const columns: GridColDef[] = [
 
 export default function GRNList() {
   const navigate = useNavigate();
-  const { grns } = useProcurement();
+  const { grns, loading } = useProcurement();
   const [status, setStatus] = useState('All');
   const [warehouse, setWarehouse] = useState('All');
 
@@ -86,6 +86,7 @@ export default function GRNList() {
         <ProcurementDataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           onRowClick={(params) => navigate(`/procurement/grn/${params.id}`)}
           sx={{ cursor: 'pointer' }}
         />

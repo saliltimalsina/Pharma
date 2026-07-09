@@ -24,6 +24,7 @@ import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useInventory } from '../../store/InventoryStore';
 import { itemById, warehouseById } from '../../data/mockData';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 
 function LabeledValue({ label, value }: { label: string; value?: string }) {
   return (
@@ -39,9 +40,13 @@ const STEPS = ['Draft', 'Pending Approval', 'Approved', 'In Transit', 'Completed
 export default function TransferDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { transfers, approveTransfer, completeTransfer, cancelTransfer } = useInventory();
+  const { loading, transfers, approveTransfer, completeTransfer, cancelTransfer } = useInventory();
   const transfer = transfers.find((t) => t.id === id);
   const [confirmCancel, setConfirmCancel] = useState(false);
+
+  if (loading && !transfer) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!transfer) {
     return (

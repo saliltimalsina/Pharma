@@ -11,6 +11,7 @@ import PageHeader from '../../components/PageHeader';
 import StatusChip from '../../components/StatusChip';
 import DetailTabs from '../../components/DetailTabs';
 import { useFinance } from '../../store/FinanceStore';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -24,8 +25,12 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
 export default function PaymentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { payments } = useFinance();
+  const { payments, loading } = useFinance();
   const payment = payments.find((p) => p.id === id);
+
+  if (loading && !payment) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!payment) {
     return (

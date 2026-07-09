@@ -33,7 +33,7 @@ const columns: GridColDef[] = [
 
 export default function TransferList() {
   const navigate = useNavigate();
-  const { transfers } = useInventory();
+  const { loading, transfers } = useInventory();
   const [warehouse, setWarehouse] = useState('All');
   const [status, setStatus] = useState('All');
 
@@ -85,6 +85,7 @@ export default function TransferList() {
         <InventoryDataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           onRowClick={(params) => navigate(`/inventory/transfers/${params.id}`)}
           sx={{ cursor: 'pointer' }}
         />

@@ -70,7 +70,7 @@ function RowActions({ stockId, itemId, onReserve }: { stockId: string; itemId: s
 export default function StockList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { stockEntries, batches, reserveStock } = useInventory();
+  const { loading, stockEntries, batches, reserveStock } = useInventory();
   const [warehouse, setWarehouse] = useState('All');
   const [category, setCategory] = useState('All');
   const [stockType, setStockType] = useState('All');
@@ -266,6 +266,7 @@ export default function StockList() {
         <InventoryDataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           onRowClick={(params) => navigate(`/inventory/stock/${params.id}`)}
           sx={{ cursor: 'pointer' }}
         />

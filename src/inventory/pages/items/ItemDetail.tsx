@@ -22,6 +22,7 @@ import Barcode, { printBarcode } from '../../components/Barcode';
 import { useInventory } from '../../store/InventoryStore';
 import { warehouseById } from '../../data/mockData';
 import { orderBatchesByCosting } from '../../data/costing';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -40,8 +41,12 @@ const COSTING_METHOD_LABEL: Record<string, string> = {
 export default function ItemDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { items, batches } = useInventory();
+  const { loading, items, batches } = useInventory();
   const item = items.find((i) => i.id === id);
+
+  if (loading && !item) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!item) {
     return (

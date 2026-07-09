@@ -34,7 +34,7 @@ const columns: GridColDef[] = [
 
 export default function RFQList() {
   const navigate = useNavigate();
-  const { rfqs } = useProcurement();
+  const { rfqs, loading } = useProcurement();
   const [status, setStatus] = useState('All');
 
   const rows = useMemo(
@@ -91,6 +91,7 @@ export default function RFQList() {
         <ProcurementDataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           onRowClick={(params) => navigate(`/procurement/rfqs/${params.id}`)}
           sx={{ cursor: 'pointer' }}
         />

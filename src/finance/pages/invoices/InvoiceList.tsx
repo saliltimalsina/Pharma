@@ -58,7 +58,7 @@ const columns: GridColDef[] = [
 export default function InvoiceList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { invoices } = useFinance();
+  const { invoices, loading } = useFinance();
   const [customer, setCustomer] = useState('All');
   const [status, setStatus] = useState('All');
   const [search, setSearch] = useState(() => searchParams.get('search') ?? '');
@@ -123,6 +123,7 @@ export default function InvoiceList() {
           columns={columns}
           onRowClick={(params) => navigate(`/finance/invoices/${params.id}`)}
           sx={{ cursor: 'pointer' }}
+          loading={loading}
         />
       </Card>
     </Box>

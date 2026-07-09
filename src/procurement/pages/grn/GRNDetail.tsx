@@ -24,6 +24,7 @@ import PipelineTracker from '../../components/PipelineTracker';
 import { useProcurement } from '../../store/ProcurementStore';
 import { useInventory } from '../../../inventory/store/InventoryStore';
 import { ApiError } from '../../../shared/api/client';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 
 function LabeledValue({ label, value }: { label: string; value?: string }) {
   return (
@@ -41,13 +42,17 @@ function daysBetween(from: string, to: string): number {
 export default function GRNDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { grns, purchaseOrders, rfqs, acceptGrn } = useProcurement();
+  const { grns, purchaseOrders, rfqs, acceptGrn, loading } = useProcurement();
   const { items: catalogItems, batches, refreshBatches } = useInventory();
   const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
   const grn = grns.find((g) => g.id === id);
   const linkedPo = grn ? purchaseOrders.find((p) => p.poNumber === grn.poNumber) : undefined;
   const linkedRfq = linkedPo?.rfqId ? rfqs.find((r) => r.id === linkedPo.rfqId) : undefined;
   const linkedBatch = grn ? batches.find((b) => b.grnNumber === grn.grnNumber) : undefined;
+
+  if (loading && !grn) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!grn) {
     return (

@@ -35,6 +35,7 @@ import PipelineTracker from '../../components/PipelineTracker';
 import { useProcurement } from '../../store/ProcurementStore';
 import { useInventory } from '../../../inventory/store/InventoryStore';
 import { ApiError } from '../../../shared/api/client';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 import type { Rfq, Vendor } from '../../data/types';
 
 const TAB_INDEX = { overview: 0, items: 1, invited: 2, quotations: 3, comparison: 4, award: 5 };
@@ -139,7 +140,7 @@ function QuotationsPanel({
 export default function RFQDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { rfqs, vendors, purchaseOrders, submitQuote, awardRfq, inviteRfqVendors } = useProcurement();
+  const { rfqs, vendors, purchaseOrders, submitQuote, awardRfq, inviteRfqVendors, loading } = useProcurement();
   const { items: catalogItems } = useInventory();
   const rfq = rfqs.find((r) => r.id === id);
   const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
@@ -150,6 +151,10 @@ export default function RFQDetail() {
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [activeTab, setActiveTab] = useState(0);
+
+  if (loading && !rfq) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!rfq) {
     return (

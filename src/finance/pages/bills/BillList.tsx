@@ -43,7 +43,7 @@ const columns: GridColDef[] = [
 export default function BillList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { supplierBills } = useFinance();
+  const { supplierBills, loading } = useFinance();
   const { vendors } = useProcurement();
   const [vendor, setVendor] = useState('All');
   const [status, setStatus] = useState('All');
@@ -108,6 +108,7 @@ export default function BillList() {
           columns={columns}
           onRowClick={(params) => navigate(`/finance/bills/${params.id}`)}
           sx={{ cursor: 'pointer' }}
+          loading={loading}
         />
       </Card>
     </Box>

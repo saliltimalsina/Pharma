@@ -20,6 +20,7 @@ import DetailTabs from '../../components/DetailTabs';
 import StatusChip from '../../components/StatusChip';
 import { useInventory } from '../../store/InventoryStore';
 import { warehouses, itemById } from '../../data/mockData';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -33,8 +34,12 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
 export default function WarehouseProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { batches, transfers } = useInventory();
+  const { loading, batches, transfers } = useInventory();
   const warehouse = warehouses.find((w) => w.id === id);
+
+  if (loading && !warehouse) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!warehouse) {
     return (

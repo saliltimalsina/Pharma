@@ -29,6 +29,7 @@ import DetailTabs from '../../components/DetailTabs';
 import FormField from '../../components/FormField';
 import { useProcurement } from '../../store/ProcurementStore';
 import { useInventory } from '../../../inventory/store/InventoryStore';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 
 const CURRENT_APPROVER = 'Grace Liu';
 
@@ -50,12 +51,16 @@ const APPROVAL_STEPS = ['Submitted', 'Manager Review', 'Purchasing Notified', 'A
 export default function RequisitionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { requisitions, submitRequisition, approveRequisition, rejectRequisition, completeRequisition } = useProcurement();
+  const { requisitions, submitRequisition, approveRequisition, rejectRequisition, completeRequisition, loading } = useProcurement();
   const { items: catalogItems } = useInventory();
   const req = requisitions.find((r) => r.id === id);
   const materialName = (code: string) => catalogItems.find((ci) => ci.id === code)?.name ?? code;
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+
+  if (loading && !req) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!req) {
     return (

@@ -34,6 +34,7 @@ import PipelineTracker from '../../../procurement/components/PipelineTracker';
 import { useInventory } from '../../store/InventoryStore';
 import { useProcurement } from '../../../procurement/store/ProcurementStore';
 import { itemById, warehouseById } from '../../data/mockData';
+import DetailPageSkeleton from '../../../shared/components/DetailPageSkeleton';
 
 function LabeledValue({ label, value }: { label: string; value?: string | number }) {
   return (
@@ -47,7 +48,7 @@ function LabeledValue({ label, value }: { label: string; value?: string | number
 export default function StockDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { batches, movements, updateBatchBin, recallBatch, disposeBatch, releaseBatch } = useInventory();
+  const { loading, batches, movements, updateBatchBin, recallBatch, disposeBatch, releaseBatch } = useInventory();
   const { purchaseOrders, grns, rfqs } = useProcurement();
   const batch = batches.find((b) => b.id === (id ?? ''));
   const linkedPo = batch ? purchaseOrders.find((p) => p.poNumber === batch.poNumber) : undefined;
@@ -55,6 +56,10 @@ export default function StockDetail() {
   const linkedRfq = linkedPo?.rfqId ? rfqs.find((r) => r.id === linkedPo.rfqId) : undefined;
   const [binDraft, setBinDraft] = useState(batch?.bin ?? '');
   const [confirmAction, setConfirmAction] = useState<null | 'recall' | 'dispose' | 'release'>(null);
+
+  if (loading && !batch) {
+    return <DetailPageSkeleton />;
+  }
 
   if (!batch) {
     return (

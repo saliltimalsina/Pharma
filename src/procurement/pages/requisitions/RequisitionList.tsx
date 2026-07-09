@@ -55,7 +55,7 @@ const columns: GridColDef[] = [
 
 export default function RequisitionList() {
   const navigate = useNavigate();
-  const { requisitions, approveRequisition } = useProcurement();
+  const { requisitions, approveRequisition, loading } = useProcurement();
   const [department, setDepartment] = useState('All');
   const [status, setStatus] = useState('All');
   const [priority, setPriority] = useState('All');
@@ -185,6 +185,7 @@ export default function RequisitionList() {
         <ProcurementDataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           checkboxSelection
           isRowSelectable={(params) => params.row.status === 'Pending Approval'}
           rowSelectionModel={selectionModel}

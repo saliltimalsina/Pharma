@@ -55,7 +55,7 @@ const columns: GridColDef[] = [
 
 export default function ItemList() {
   const navigate = useNavigate();
-  const { items, batches } = useInventory();
+  const { loading, items, batches } = useInventory();
   const [category, setCategory] = useState('All');
   const [warehouse, setWarehouse] = useState('All');
   const [status, setStatus] = useState('All');
@@ -141,6 +141,7 @@ export default function ItemList() {
         <InventoryDataGrid
           rows={rows}
           columns={columns}
+          loading={loading}
           onRowClick={(params) => navigate(`/inventory/items/${params.id}`)}
           sx={{ cursor: 'pointer' }}
         />
