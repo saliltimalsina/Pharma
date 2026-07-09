@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { api, setToken, clearToken, ApiError } from '../shared/api/client';
 
 export interface AuthUser {
@@ -67,6 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearToken();
     setUser(null);
   };
+
+  // The API client clears the token on any 401 but has no way to reach this
+  // context directly - it signals here instead, so a dead/expired session
+  // drops the cached user and the route guard sends you back to /login.
+  useEffect(() => {
+    window.addEventListener('auth:unauthorized', logout);
+    return () => window.removeEventListener('auth:unauthorized', logout);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, loginDemo, logout }}>

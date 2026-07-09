@@ -48,7 +48,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!res.ok) {
-    if (res.status === 401) clearToken();
+    // A 401 means the token is gone/invalid server-side - clear it and tell
+    // AuthContext so the cached "logged in" user doesn't outlive the session
+    // (it lives in a separate localStorage key and can't see this directly).
+    if (res.status === 401) {
+      clearToken();
+      window.dispatchEvent(new Event('auth:unauthorized'));
+    }
     const message = (body as { message?: string } | null)?.message ?? `Request failed (${res.status})`;
     throw new ApiError(message, res.status, (body as { errors?: Record<string, string[]> } | null)?.errors);
   }
