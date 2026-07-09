@@ -59,9 +59,11 @@ export default function ItemForm() {
   const [currency, setCurrency] = useState(currencies[0]);
 
   const canSubmit = name.trim() !== '' && category !== '';
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
-    const id = addItem({
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    const id = await addItem({
       name,
       category,
       brand,
@@ -217,7 +219,7 @@ export default function ItemForm() {
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
           <Button variant="outlined" onClick={() => navigate('/inventory/items')}>Cancel</Button>
-          <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>Save Product</Button>
+          <Button variant="contained" disabled={!canSubmit || submitting} loading={submitting} onClick={handleSubmit}>Save Product</Button>
         </Stack>
       </Stack>
     </Box>

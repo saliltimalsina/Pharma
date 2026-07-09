@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
 import {
   items as seedItems,
   transfers as seedTransfers,
@@ -9,6 +9,7 @@ import {
   itemById,
 } from '../data/mockData';
 import { orderBatchesByCosting } from '../data/costing';
+import { fetchItems, createItem } from './itemApi';
 import type {
   Item,
   Transfer,
@@ -61,7 +62,7 @@ interface InventoryContextValue {
   batches: Batch[];
   stockEntries: StockEntry[];
   movements: StockMovement[];
-  addItem: (input: NewItemInput) => string;
+  addItem: (input: NewItemInput) => Promise<string>;
   addBatch: (input: NewBatchInput) => string;
   // Create or top-up batches from a receipt (Stock-In / GRN). Returns affected batch ids.
   receiveStock: (lines: StockInLine[]) => string[];
@@ -140,17 +141,35 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
   const stockEntries = useMemo(() => deriveStockEntries(batches), [batches]);
 
+  useEffect(() => {
+    fetchItems()
+      .then(setItems)
+      .catch((e) => console.error('Failed to load items', e));
+  }, []);
+
   const logMovements = (recs: StockMovement[]) => {
     if (recs.length) setMovements((prev) => [...prev, ...recs]);
   };
 
-  const addItem: InventoryContextValue['addItem'] = (input) => {
+  const addItem: InventoryContextValue['addItem'] = async (input) => {
     itemSeq += 1;
-    const id = `ITM-${String(itemSeq).padStart(3, '0')}`;
-    const prefix = input.category.slice(0, 3).toUpperCase();
-    const item: Item = { ...input, id, sku: `${prefix}-${100 + itemSeq}`, status: 'Active' };
+    const prefix = input.category.slice(0, 3).toUpperCase() || 'ITM';
+    const materialCode = `${prefix}-${Date.now().toString(36).toUpperCase()}`;
+    const item = await createItem({
+      materialCode,
+      materialName: input.name,
+      category: input.category,
+      unitOfMeasure: input.uom,
+      standardShelfLifeDays: input.expiryTracking ? input.shelfLifeMonths * 30 : undefined,
+      storageConditions: input.storageCondition,
+      reorderLevel: input.reorderLevel,
+      minStock: input.safetyStock,
+      maxStock: input.maximumStock,
+      standardCost: input.purchasePrice,
+      costingMethod: input.costingMethod === 'FIFO' ? 'fifo' : 'fefo',
+    });
     setItems((prev) => [item, ...prev]);
-    return id;
+    return item.id;
   };
 
   const addBatch: InventoryContextValue['addBatch'] = (input) => {
