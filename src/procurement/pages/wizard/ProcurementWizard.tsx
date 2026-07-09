@@ -107,7 +107,7 @@ export default function ProcurementWizard() {
       );
       await approveRequisition(reqId, APPROVER);
 
-      const rfqId = addRfq(
+      const rfqId = await addRfq(
         {
           requisitionId: reqId,
           title,

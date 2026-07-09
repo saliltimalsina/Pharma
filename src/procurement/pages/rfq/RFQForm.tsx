@@ -18,6 +18,7 @@ import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
 import Avatar from '@mui/material/Avatar';
 import Checkbox from '@mui/material/Checkbox';
+import Alert from '@mui/material/Alert';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
@@ -25,6 +26,8 @@ import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useProcurement } from '../../store/ProcurementStore';
+import { useInventory } from '../../../inventory/store/InventoryStore';
+import { ApiError } from '../../../shared/api/client';
 import type { RequisitionItem, VendorCategory } from '../../data/types';
 
 const categories: VendorCategory[] = ['API Supplier', 'Excipients', 'Packaging', 'Lab Equipment', 'Logistics', 'MRO'];
@@ -46,6 +49,7 @@ export default function RFQForm() {
   const [searchParams] = useSearchParams();
   const fromReq = searchParams.get('fromReq');
   const { vendors, requisitions, addRfq } = useProcurement();
+  const { items: catalogItems } = useInventory();
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -68,22 +72,32 @@ export default function RFQForm() {
   const updateItem = (key: number, field: keyof RequisitionItem, value: string | number) =>
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, [field]: value } : it)));
 
-  const save = (send: boolean) => {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async (send: boolean) => {
     const cleanItems: RequisitionItem[] = items.map(({ key: _key, ...rest }) => rest);
-    const id = addRfq(
-      {
-        requisitionId: fromReq ?? undefined,
-        title,
-        category,
-        createdDate: today,
-        closingDate,
-        currency,
-        invitedVendors: selectedVendors,
-        items: cleanItems,
-      },
-      send,
-    );
-    navigate('/procurement/rfqs/' + id);
+    setSubmitting(true);
+    setError('');
+    try {
+      const id = await addRfq(
+        {
+          requisitionId: fromReq ?? undefined,
+          title,
+          category,
+          createdDate: today,
+          closingDate,
+          currency,
+          invitedVendors: selectedVendors,
+          items: cleanItems,
+        },
+        send,
+      );
+      navigate('/procurement/rfqs/' + id);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not save the RFQ.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -95,6 +109,12 @@ export default function RFQForm() {
           <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/procurement/rfqs')}>Cancel</Button>
         }
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Stack spacing={2}>
         <Card variant="outlined">
@@ -154,7 +174,21 @@ export default function RFQForm() {
                 {items.map((row) => (
                   <TableRow key={row.key}>
                     <TableCell>
-                      <TextField variant="standard" fullWidth placeholder="Lactose Monohydrate" value={row.item} onChange={(e) => updateItem(row.key, 'item', e.target.value)} />
+                      <TextField
+                        select
+                        variant="standard"
+                        fullWidth
+                        value={row.item}
+                        onChange={(e) => updateItem(row.key, 'item', e.target.value)}
+                        slotProps={{ select: { displayEmpty: true } }}
+                      >
+                        <MenuItem value="" disabled>
+                          Select item
+                        </MenuItem>
+                        {catalogItems.map((ci) => (
+                          <MenuItem key={ci.id} value={ci.id}>{ci.name}</MenuItem>
+                        ))}
+                      </TextField>
                     </TableCell>
                     <TableCell><TextField variant="standard" type="number" fullWidth value={row.requiredQty} onChange={(e) => updateItem(row.key, 'requiredQty', Number(e.target.value))} /></TableCell>
                     <TableCell><TextField variant="standard" fullWidth value={row.unit} onChange={(e) => updateItem(row.key, 'unit', e.target.value)} /></TableCell>
@@ -212,8 +246,13 @@ export default function RFQForm() {
         </Card>
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
-          <Button variant="outlined" onClick={() => save(false)}>Save as Draft</Button>
-          <Button variant="contained" disabled={selectedVendors.length === 0} onClick={() => save(true)}>
+          <Button variant="outlined" disabled={submitting} loading={submitting} onClick={() => save(false)}>Save as Draft</Button>
+          <Button
+            variant="contained"
+            disabled={selectedVendors.length === 0 || submitting}
+            loading={submitting}
+            onClick={() => save(true)}
+          >
             Send to Vendors
           </Button>
         </Stack>

@@ -15,6 +15,7 @@ import {
   rejectRequisitionApi,
   type CreateRequisitionInput,
 } from './requisitionApi';
+import { fetchRfqs, createRfq, submitRfqQuote, awardRfqApi } from './rfqApi';
 import type {
   Requisition,
   Vendor,
@@ -60,9 +61,9 @@ interface ProcurementContextValue {
   addVendor: (input: NewVendorInput) => Promise<string>;
   addVendorDoc: (vendorId: string, doc: VendorDoc) => void;
   removeVendorDoc: (vendorId: string, index: number) => void;
-  addRfq: (input: NewRfqInput, send: boolean) => string;
-  submitQuote: (rfqId: string, quote: QuoteInput) => void;
-  awardRfq: (id: string, vendorId: string) => void;
+  addRfq: (input: NewRfqInput, send: boolean) => Promise<string>;
+  submitQuote: (rfqId: string, quote: QuoteInput) => Promise<void>;
+  awardRfq: (id: string, vendorId: string) => Promise<void>;
   addPurchaseOrder: (input: NewPoInput, submit: boolean) => string;
   approvePurchaseOrder: (id: string) => void;
   sendPurchaseOrder: (id: string) => void;
@@ -76,7 +77,6 @@ const ProcurementContext = createContext<ProcurementContextValue | null>(null);
 // Actor used for audit events that carry no explicit user (approvals, sends, etc.).
 const SYSTEM_ACTOR = 'Procurement Officer';
 
-let rfqSeq = seedRfqs.length;
 let poSeq = seedPurchaseOrders.length;
 let grnSeq = seedGrns.length;
 let eventSeq = 0;
@@ -88,28 +88,6 @@ function poAmount(items: PoItem[]): number {
     const discounted = base - (base * it.discount) / 100;
     return sum + discounted + (discounted * it.vat) / 100;
   }, 0);
-}
-
-// Recompute every submitted quote's score from the REAL entered values, normalised
-// within the RFQ: best price -> 1, fastest delivery -> 1, quality rating / 5.
-function recomputeScores(quotes: RfqQuote[]): RfqQuote[] {
-  const submitted = quotes.filter((q) => q.submitted);
-  if (submitted.length === 0) return quotes;
-  const prices = submitted.map((q) => q.price);
-  const deliveries = submitted.map((q) => q.deliveryDays);
-  const minP = Math.min(...prices);
-  const maxP = Math.max(...prices);
-  const minD = Math.min(...deliveries);
-  const maxD = Math.max(...deliveries);
-  const norm = (v: number, min: number, max: number) => (max === min ? 1 : (max - v) / (max - min));
-  return quotes.map((q) => {
-    if (!q.submitted) return { ...q, score: 0 };
-    const priceScore = norm(q.price, minP, maxP);
-    const deliveryScore = norm(q.deliveryDays, minD, maxD);
-    const qualityScore = Math.max(0, Math.min(1, q.qualityRating / 5));
-    const score = Math.round((0.4 * priceScore + 0.3 * deliveryScore + 0.3 * qualityScore) * 100);
-    return { ...q, score };
-  });
 }
 
 export function ProcurementProvider({ children }: { children: ReactNode }) {
@@ -166,6 +144,9 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
       .then(setRequisitions)
       .catch((e) => console.error('Failed to load requisitions', e));
     loadDepartmentIds().catch((e) => console.error('Failed to load departments', e));
+    fetchRfqs()
+      .then(setRfqs)
+      .catch((e) => console.error('Failed to load RFQs', e));
   }, []);
 
   // Append an audit-trail entry. In-memory only (resets on refresh).
@@ -286,49 +267,46 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     if (vendor) logEvent('Document Removed', 'Vendor', `${vendor.name} · ${docName}`, SYSTEM_ACTOR);
   };
 
-  const addRfq: ProcurementContextValue['addRfq'] = (input, send) => {
-    rfqSeq += 1;
-    const id = `RFQ-${String(rfqSeq).padStart(3, '0')}`;
-    const rfqNo = `RFQ-2026-00${31 + (rfqSeq - seedRfqs.length)}`;
-    const rfq: Rfq = {
-      ...input,
-      id,
-      rfqNo,
-      status: send ? 'Sent' : 'Draft',
-      quotes: input.quotes ?? [],
-    };
+  const addRfq: ProcurementContextValue['addRfq'] = async (input, send) => {
+    const categoryIds = await loadCategoryIds();
+    const rfq = await createRfq({
+      requisitionId: input.requisitionId ? Number(input.requisitionId) : undefined,
+      title: input.title,
+      vendorCategoryId: categoryIds.get(input.category) ?? 0,
+      closingDate: input.closingDate,
+      currency: input.currency,
+      send,
+      items: input.items.map((it) => ({
+        rawMaterialId: it.item,
+        quantityRequested: it.requiredQty,
+        unit: it.unit,
+      })),
+      invitedVendorIds: input.invitedVendors.map(Number),
+    });
     setRfqs((prev) => [rfq, ...prev]);
-    logEvent(send ? 'Sent' : 'Created', 'RFQ', rfqNo, SYSTEM_ACTOR);
-    return id;
+    logEvent(send ? 'Sent' : 'Created', 'RFQ', rfq.rfqNo, SYSTEM_ACTOR);
+    return rfq.id;
   };
 
-  // Upsert a vendor's quote from real entered values, then re-score the whole RFQ.
-  const submitQuote: ProcurementContextValue['submitQuote'] = (rfqId, quote) => {
-    const rfq = rfqs.find((r) => r.id === rfqId);
-    setRfqs((prev) =>
-      prev.map((r) => {
-        if (r.id !== rfqId) return r;
-        const existing = r.quotes.filter((q) => q.vendorId !== quote.vendorId);
-        const nextQuotes = recomputeScores([
-          ...existing,
-          { ...quote, score: 0, submitted: true },
-        ]);
-        const status = r.status === 'Sent' || r.status === 'Draft' ? 'Receiving Quotes' : r.status;
-        return { ...r, quotes: nextQuotes, status };
-      }),
-    );
-    if (rfq) logEvent('Quote Submitted', 'RFQ', rfq.rfqNo, quote.vendorName);
+  // Upsert a vendor's quote - the backend recomputes every submitted quote's
+  // score from the real entered values, matching the old client-side logic.
+  const submitQuote: ProcurementContextValue['submitQuote'] = async (rfqId, quote) => {
+    const updated = await submitRfqQuote(rfqId, {
+      vendorId: Number(quote.vendorId),
+      price: quote.price,
+      deliveryDays: quote.deliveryDays,
+      qualityRating: quote.qualityRating,
+      paymentTerms: quote.paymentTerms,
+    });
+    setRfqs((prev) => prev.map((r) => (r.id === rfqId ? updated : r)));
+    logEvent('Quote Submitted', 'RFQ', updated.rfqNo, quote.vendorName);
   };
 
-  const awardRfq: ProcurementContextValue['awardRfq'] = (id, vendorId) => {
-    const rfq = rfqs.find((r) => r.id === id);
-    setRfqs((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'Awarded', awardedVendor: vendorId } : r)),
-    );
-    if (rfq) {
-      const vendorName = vendors.find((v) => v.id === vendorId)?.name ?? vendorId;
-      logEvent('Awarded', 'RFQ', `${rfq.rfqNo} → ${vendorName}`, SYSTEM_ACTOR);
-    }
+  const awardRfq: ProcurementContextValue['awardRfq'] = async (id, vendorId) => {
+    const updated = await awardRfqApi(id, Number(vendorId));
+    setRfqs((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    const vendorName = vendors.find((v) => v.id === vendorId)?.name ?? vendorId;
+    logEvent('Awarded', 'RFQ', `${updated.rfqNo} → ${vendorName}`, SYSTEM_ACTOR);
   };
 
   const addPurchaseOrder: ProcurementContextValue['addPurchaseOrder'] = (input, submit) => {
