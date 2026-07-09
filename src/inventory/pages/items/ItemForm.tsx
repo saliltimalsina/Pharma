@@ -10,11 +10,13 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import Alert from '@mui/material/Alert';
 import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useInventory } from '../../store/InventoryStore';
 import { categories, brands } from '../../data/mockData';
+import { ApiError } from '../../../shared/api/client';
 import type { CostingMethod, StockType } from '../../data/types';
 
 const costingMethods: CostingMethod[] = ['FEFO', 'FIFO'];
@@ -60,32 +62,39 @@ export default function ItemForm() {
 
   const canSubmit = name.trim() !== '' && category !== '';
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    const id = await addItem({
-      name,
-      category,
-      brand,
-      manufacturer,
-      description,
-      uom,
-      reorderLevel,
-      safetyStock,
-      maximumStock,
-      storageCondition,
-      stockType,
-      costingMethod,
-      barcode,
-      batchTracking,
-      expiryTracking,
-      shelfLifeMonths,
-      preferredSupplier,
-      purchasePrice,
-      averageCost: purchasePrice,
-      currency,
-    });
-    navigate(`/inventory/items/${id}`);
+    setError('');
+    try {
+      const id = await addItem({
+        name,
+        category,
+        brand,
+        manufacturer,
+        description,
+        uom,
+        reorderLevel,
+        safetyStock,
+        maximumStock,
+        storageCondition,
+        stockType,
+        costingMethod,
+        barcode,
+        batchTracking,
+        expiryTracking,
+        shelfLifeMonths,
+        preferredSupplier,
+        purchasePrice,
+        averageCost: purchasePrice,
+        currency,
+      });
+      navigate(`/inventory/items/${id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not save the item.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -95,6 +104,12 @@ export default function ItemForm() {
         subtitle="Create a new item in the master database"
         actions={<Button onClick={() => navigate('/inventory/items')}>Cancel</Button>}
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Stack spacing={2}>
         <Card variant="outlined">

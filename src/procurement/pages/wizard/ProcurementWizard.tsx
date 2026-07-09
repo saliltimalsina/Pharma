@@ -20,6 +20,7 @@ import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import Avatar from '@mui/material/Avatar';
 import Checkbox from '@mui/material/Checkbox';
+import Alert from '@mui/material/Alert';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
@@ -28,8 +29,9 @@ import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useProcurement } from '../../store/ProcurementStore';
+import { useInventory } from '../../../inventory/store/InventoryStore';
 import { departments } from '../../data/mockData';
-import { items as catalogItems } from '../../../inventory/data/mockData';
+import { ApiError } from '../../../shared/api/client';
 import type { Priority, RequisitionItem, VendorCategory } from '../../data/types';
 
 const priorities: Priority[] = ['Low', 'Medium', 'High', 'Urgent'];
@@ -52,6 +54,7 @@ const STEPS = ['Request Materials', 'Get Quotes'];
 export default function ProcurementWizard() {
   const navigate = useNavigate();
   const { vendors, addRequisition, approveRequisition, addRfq } = useProcurement();
+  const { items: catalogItems } = useInventory();
 
   const today = new Date().toISOString().slice(0, 10);
   const [activeStep, setActiveStep] = useState(0);
@@ -81,37 +84,47 @@ export default function ProcurementWizard() {
   const step1Valid = title.trim() !== '' && closingDate !== '' && selectedVendors.length > 0;
   const stepValid = [step0Valid, step1Valid][activeStep];
 
-  const sendRfq = () => {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const sendRfq = async () => {
     const cleanItems: RequisitionItem[] = items.map(({ key: _key, ...rest }) => rest);
 
-    const reqId = addRequisition(
-      {
-        department,
-        requestedBy: requester,
-        requestDate: today,
-        requiredDate,
-        priority,
-        purpose,
-        items: cleanItems,
-      },
-      true,
-    );
-    approveRequisition(reqId, APPROVER);
+    setSubmitting(true);
+    setError('');
+    try {
+      const reqId = await addRequisition(
+        {
+          department,
+          requestedBy: requester,
+          requestDate: today,
+          requiredDate,
+          priority,
+          purpose,
+          items: cleanItems,
+        },
+        true,
+      );
+      await approveRequisition(reqId, APPROVER);
 
-    const rfqId = addRfq(
-      {
-        requisitionId: reqId,
-        title,
-        category,
-        createdDate: today,
-        closingDate,
-        currency: 'NPR',
-        invitedVendors: selectedVendors,
-        items: cleanItems,
-      },
-      true,
-    );
-    navigate(`/procurement/rfqs/${rfqId}`);
+      const rfqId = addRfq(
+        {
+          requisitionId: reqId,
+          title,
+          category,
+          createdDate: today,
+          closingDate,
+          currency: 'NPR',
+          invitedVendors: selectedVendors,
+          items: cleanItems,
+        },
+        true,
+      );
+      navigate(`/procurement/rfqs/${rfqId}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not send the RFQ.');
+      setSubmitting(false);
+    }
   };
 
   const requestStep = (
@@ -184,7 +197,7 @@ export default function ProcurementWizard() {
                         Select item
                       </MenuItem>
                       {catalogItems.map((ci) => (
-                        <MenuItem key={ci.id} value={ci.name}>{ci.name}</MenuItem>
+                        <MenuItem key={ci.id} value={ci.id}>{ci.name}</MenuItem>
                       ))}
                     </TextField>
                   </TableCell>
@@ -287,6 +300,12 @@ export default function ProcurementWizard() {
         }
       />
 
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
+
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
           <Stepper activeStep={activeStep} alternativeLabel>
@@ -317,7 +336,7 @@ export default function ProcurementWizard() {
             Next
           </Button>
         ) : (
-          <Button variant="contained" color="success" disabled={!stepValid} onClick={sendRfq}>
+          <Button variant="contained" color="success" disabled={!stepValid || submitting} loading={submitting} onClick={sendRfq}>
             Send RFQ
           </Button>
         )}

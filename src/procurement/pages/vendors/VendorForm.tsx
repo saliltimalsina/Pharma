@@ -8,10 +8,12 @@ import Grid from '@mui/material/Grid';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
+import Alert from '@mui/material/Alert';
 import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useProcurement } from '../../store/ProcurementStore';
+import { ApiError } from '../../../shared/api/client';
 import type { VendorCategory } from '../../data/types';
 
 const categories: VendorCategory[] = ['API Supplier', 'Excipients', 'Packaging', 'Lab Equipment', 'Logistics', 'MRO'];
@@ -41,30 +43,37 @@ export default function VendorForm() {
   const canSubmit = name.trim() !== '' && email.trim() !== '' && country.trim() !== '';
 
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    const id = await addVendor({
-      name,
-      category,
-      country,
-      registrationNumber,
-      vatNumber,
-      businessType,
-      establishedDate,
-      primaryContact,
-      phone,
-      email,
-      website,
-      address,
-      paymentTerms,
-      currency,
-      creditLimit,
-      bankAccount: '—',
-      status: 'Pending Approval',
-      documents: [],
-    });
-    navigate(`/procurement/vendors/${id}`);
+    setError('');
+    try {
+      const id = await addVendor({
+        name,
+        category,
+        country,
+        registrationNumber,
+        vatNumber,
+        businessType,
+        establishedDate,
+        primaryContact,
+        phone,
+        email,
+        website,
+        address,
+        paymentTerms,
+        currency,
+        creditLimit,
+        bankAccount: '—',
+        status: 'Pending Approval',
+        documents: [],
+      });
+      navigate(`/procurement/vendors/${id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not save the vendor.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -76,6 +85,12 @@ export default function VendorForm() {
           <Button onClick={() => navigate('/procurement/vendors')}>Cancel</Button>
         }
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Stack spacing={2}>
         <Card variant="outlined">

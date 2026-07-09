@@ -9,6 +9,7 @@ import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
+import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -23,7 +24,9 @@ import PageHeader from '../../components/PageHeader';
 import FormField from '../../components/FormField';
 import FormSelectField from '../../components/FormSelectField';
 import { useProcurement } from '../../store/ProcurementStore';
+import { useInventory } from '../../../inventory/store/InventoryStore';
 import { departments } from '../../data/mockData';
+import { ApiError } from '../../../shared/api/client';
 import type { Priority, RequisitionItem } from '../../data/types';
 
 const priorities: Priority[] = ['Low', 'Medium', 'High', 'Urgent'];
@@ -46,6 +49,7 @@ function blankItem(): RequisitionItem & { key: number } {
 export default function RequisitionForm() {
   const navigate = useNavigate();
   const { addRequisition } = useProcurement();
+  const { items: catalogItems } = useInventory();
   const [items, setItems] = useState([blankItem()]);
   const [department, setDepartment] = useState(departments[0]);
   const [requester, setRequester] = useState('Riley Carter');
@@ -58,31 +62,41 @@ export default function RequisitionForm() {
     setItems((prev) => prev.map((it) => (it.key === key ? { ...it, [field]: value } : it)));
   };
 
-  const canSubmit = department !== '' && requester.trim() !== '' && purpose.trim() !== '';
+  const canSubmit =
+    department !== '' && requester.trim() !== '' && purpose.trim() !== '' && items.every((it) => it.item !== '');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const save = (submit: boolean) => {
-    const id = addRequisition(
-      {
-        department,
-        requestedBy: requester,
-        requestDate: new Date().toISOString().slice(0, 10),
-        requiredDate,
-        priority,
-        purpose,
-        notes: notes || undefined,
-        items: items.map((it) => ({
-          item: it.item,
-          description: it.description,
-          requiredQty: it.requiredQty,
-          unit: it.unit,
-          currentStock: it.currentStock,
-          requiredDate: it.requiredDate,
-          remarks: it.remarks,
-        })),
-      },
-      submit,
-    );
-    navigate(`/procurement/requisitions/${id}`);
+  const save = async (submit: boolean) => {
+    setSubmitting(true);
+    setError('');
+    try {
+      const id = await addRequisition(
+        {
+          department,
+          requestedBy: requester,
+          requestDate: new Date().toISOString().slice(0, 10),
+          requiredDate,
+          priority,
+          purpose,
+          notes: notes || undefined,
+          items: items.map((it) => ({
+            item: it.item,
+            description: it.description,
+            requiredQty: it.requiredQty,
+            unit: it.unit,
+            currentStock: it.currentStock,
+            requiredDate: it.requiredDate,
+            remarks: it.remarks,
+          })),
+        },
+        submit,
+      );
+      navigate(`/procurement/requisitions/${id}`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not save the requisition.');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -96,6 +110,12 @@ export default function RequisitionForm() {
           </Button>
         }
       />
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
 
       <Stack spacing={2}>
         <Card variant="outlined">
@@ -163,7 +183,21 @@ export default function RequisitionForm() {
                 {items.map((row) => (
                   <TableRow key={row.key}>
                     <TableCell>
-                      <TextField variant="standard" placeholder="Lactose Monohydrate" value={row.item} onChange={(e) => updateItem(row.key, 'item', e.target.value)} fullWidth />
+                      <TextField
+                        select
+                        variant="standard"
+                        value={row.item}
+                        onChange={(e) => updateItem(row.key, 'item', e.target.value)}
+                        fullWidth
+                        slotProps={{ select: { displayEmpty: true } }}
+                      >
+                        <MenuItem value="" disabled>
+                          Select item
+                        </MenuItem>
+                        {catalogItems.map((ci) => (
+                          <MenuItem key={ci.id} value={ci.id}>{ci.name}</MenuItem>
+                        ))}
+                      </TextField>
                     </TableCell>
                     <TableCell>
                       <TextField variant="standard" placeholder="Grade / spec" value={row.description} onChange={(e) => updateItem(row.key, 'description', e.target.value)} fullWidth />
@@ -203,8 +237,8 @@ export default function RequisitionForm() {
         </Card>
 
         <Stack direction="row" sx={{ justifyContent: 'flex-end', gap: 1.5 }}>
-          <Button variant="outlined" disabled={!canSubmit} onClick={() => save(false)}>Save as Draft</Button>
-          <Button variant="contained" disabled={!canSubmit} onClick={() => save(true)}>Submit for Approval</Button>
+          <Button variant="outlined" disabled={!canSubmit || submitting} loading={submitting} onClick={() => save(false)}>Save as Draft</Button>
+          <Button variant="contained" disabled={!canSubmit || submitting} loading={submitting} onClick={() => save(true)}>Submit for Approval</Button>
         </Stack>
       </Stack>
     </Box>

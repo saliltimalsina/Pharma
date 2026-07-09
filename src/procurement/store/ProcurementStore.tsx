@@ -7,6 +7,14 @@ import {
   grns as seedGrns,
 } from '../data/mockData';
 import { fetchVendors, fetchVendorCategories, fetchBusinessTypes, createVendor } from './vendorApi';
+import {
+  fetchRequisitions,
+  fetchDepartments,
+  createRequisition,
+  approveRequisitionApi,
+  rejectRequisitionApi,
+  type CreateRequisitionInput,
+} from './requisitionApi';
 import type {
   Requisition,
   Vendor,
@@ -44,10 +52,10 @@ interface ProcurementContextValue {
   purchaseOrders: PurchaseOrder[];
   grns: Grn[];
   procurementEvents: ProcurementEvent[];
-  addRequisition: (input: NewRequisitionInput, submit: boolean) => string;
+  addRequisition: (input: NewRequisitionInput, submit: boolean) => Promise<string>;
   submitRequisition: (id: string) => void;
-  approveRequisition: (id: string, approver: string) => void;
-  rejectRequisition: (id: string, approver: string, reason: string) => void;
+  approveRequisition: (id: string, approver: string) => Promise<void>;
+  rejectRequisition: (id: string, approver: string, reason: string) => Promise<void>;
   completeRequisition: (id: string) => void;
   addVendor: (input: NewVendorInput) => Promise<string>;
   addVendorDoc: (vendorId: string, doc: VendorDoc) => void;
@@ -68,7 +76,6 @@ const ProcurementContext = createContext<ProcurementContextValue | null>(null);
 // Actor used for audit events that carry no explicit user (approvals, sends, etc.).
 const SYSTEM_ACTOR = 'Procurement Officer';
 
-let requisitionSeq = seedRequisitions.length;
 let rfqSeq = seedRfqs.length;
 let poSeq = seedPurchaseOrders.length;
 let grnSeq = seedGrns.length;
@@ -120,6 +127,7 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
   // reading an empty map.
   const categoryIdsPromise = useRef<Promise<Map<string, number>> | null>(null);
   const businessTypeIdsPromise = useRef<Promise<Map<string, number>> | null>(null);
+  const departmentIdsPromise = useRef<Promise<Map<string, number>> | null>(null);
 
   const loadCategoryIds = () => {
     if (!categoryIdsPromise.current) {
@@ -139,12 +147,25 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     return businessTypeIdsPromise.current;
   };
 
+  const loadDepartmentIds = () => {
+    if (!departmentIdsPromise.current) {
+      departmentIdsPromise.current = fetchDepartments().then(
+        (rows) => new Map(rows.map((r) => [r.name, r.id])),
+      );
+    }
+    return departmentIdsPromise.current;
+  };
+
   useEffect(() => {
     fetchVendors()
       .then(setVendors)
       .catch((e) => console.error('Failed to load vendors', e));
     loadCategoryIds().catch((e) => console.error('Failed to load vendor categories', e));
     loadBusinessTypeIds().catch((e) => console.error('Failed to load business types', e));
+    fetchRequisitions()
+      .then(setRequisitions)
+      .catch((e) => console.error('Failed to load requisitions', e));
+    loadDepartmentIds().catch((e) => console.error('Failed to load departments', e));
   }, []);
 
   // Append an audit-trail entry. In-memory only (resets on refresh).
@@ -166,21 +187,36 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     setProcurementEvents((prev) => [event, ...prev]);
   };
 
-  const addRequisition: ProcurementContextValue['addRequisition'] = (input, submit) => {
-    requisitionSeq += 1;
-    const id = `REQ-${String(requisitionSeq).padStart(3, '0')}`;
-    const requestNo = `REQ-2026-0${142 + (requisitionSeq - seedRequisitions.length)}`;
-    const requisition: Requisition = {
-      ...input,
-      id,
-      requestNo,
-      status: submit ? 'Pending Approval' : 'Draft',
-    };
-    setRequisitions((prev) => [requisition, ...prev]);
-    logEvent(submit ? 'Submitted' : 'Created', 'Requisition', requestNo, input.requestedBy);
-    return id;
+  const PRIORITY_VALUE: Record<Requisition['priority'], CreateRequisitionInput['priority']> = {
+    Low: 'low',
+    Medium: 'medium',
+    High: 'high',
+    Urgent: 'urgent',
   };
 
+  // Items come from the form with `item` holding the selected raw_material_id
+  // (a real select now, sourced from the live Item catalog - not free text).
+  const addRequisition: ProcurementContextValue['addRequisition'] = async (input, submit) => {
+    const departmentIds = await loadDepartmentIds();
+    const requisition = await createRequisition({
+      departmentId: departmentIds.get(input.department) ?? 0,
+      requiredByDate: input.requiredDate || undefined,
+      priority: PRIORITY_VALUE[input.priority],
+      purposeRemarks: input.notes ? `${input.purpose}\n\n${input.notes}` : input.purpose,
+      submit,
+      items: input.items.map((it) => ({
+        rawMaterialId: it.item,
+        quantityRequested: it.requiredQty,
+        unit: it.unit,
+      })),
+    });
+    setRequisitions((prev) => [requisition, ...prev]);
+    logEvent(submit ? 'Submitted' : 'Created', 'Requisition', requisition.requestNo, input.requestedBy);
+    return requisition.id;
+  };
+
+  // No backend endpoint exists yet to submit an already-created draft
+  // (only create-time submit and approve/reject) - local-only for now.
   const submitRequisition: ProcurementContextValue['submitRequisition'] = (id) => {
     const req = requisitions.find((r) => r.id === id);
     setRequisitions((prev) =>
@@ -189,22 +225,16 @@ export function ProcurementProvider({ children }: { children: ReactNode }) {
     if (req) logEvent('Submitted', 'Requisition', req.requestNo, req.requestedBy);
   };
 
-  const approveRequisition: ProcurementContextValue['approveRequisition'] = (id, approver) => {
-    const req = requisitions.find((r) => r.id === id);
-    setRequisitions((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'Approved', approvedBy: approver } : r)),
-    );
-    if (req) logEvent('Approved', 'Requisition', req.requestNo, approver);
+  const approveRequisition: ProcurementContextValue['approveRequisition'] = async (id, approver) => {
+    const updated = await approveRequisitionApi(id);
+    setRequisitions((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    logEvent('Approved', 'Requisition', updated.requestNo, approver);
   };
 
-  const rejectRequisition: ProcurementContextValue['rejectRequisition'] = (id, approver, reason) => {
-    const req = requisitions.find((r) => r.id === id);
-    setRequisitions((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: 'Rejected', approvedBy: approver, notes: reason } : r,
-      ),
-    );
-    if (req) logEvent('Rejected', 'Requisition', req.requestNo, approver);
+  const rejectRequisition: ProcurementContextValue['rejectRequisition'] = async (id, approver, reason) => {
+    const updated = await rejectRequisitionApi(id, reason);
+    setRequisitions((prev) => prev.map((r) => (r.id === id ? { ...updated, notes: reason } : r)));
+    logEvent('Rejected', 'Requisition', updated.requestNo, approver);
   };
 
   const completeRequisition: ProcurementContextValue['completeRequisition'] = (id) => {
