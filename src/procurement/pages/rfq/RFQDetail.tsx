@@ -60,7 +60,7 @@ function QuotationsPanel({
 }: {
   rfq: Rfq;
   vendors: Vendor[];
-  onSubmit: (vendorId: string, vendorName: string, draft: QuoteDraft) => void;
+  onSubmit: (vendorId: string, vendorName: string, draft: QuoteDraft) => Promise<void>;
 }) {
   const [drafts, setDrafts] = useState<Record<string, QuoteDraft>>(() => {
     const initial: Record<string, QuoteDraft> = {};
@@ -75,9 +75,23 @@ function QuotationsPanel({
     });
     return initial;
   });
+  const [submittingVid, setSubmittingVid] = useState<string | null>(null);
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
   const update = (vid: string, field: keyof QuoteDraft, value: string) =>
     setDrafts((prev) => ({ ...prev, [vid]: { ...prev[vid], [field]: value } }));
+
+  const submitRow = async (vid: string, vendorName: string, draft: QuoteDraft) => {
+    setSubmittingVid(vid);
+    setRowErrors((prev) => ({ ...prev, [vid]: '' }));
+    try {
+      await onSubmit(vid, vendorName, draft);
+    } catch (e) {
+      setRowErrors((prev) => ({ ...prev, [vid]: e instanceof ApiError ? e.message : 'Could not submit the quote.' }));
+    } finally {
+      setSubmittingVid(null);
+    }
+  };
 
   if (rfq.invitedVendors.length === 0) {
     return (
@@ -109,7 +123,16 @@ function QuotationsPanel({
             const v = vendors.find((vend) => vend.id === vid);
             const d = drafts[vid] ?? { price: '', deliveryDays: '', paymentTerms: '', qualityRating: '' };
             const submitted = rfq.quotes.some((q) => q.vendorId === vid && q.submitted);
-            const valid = d.price !== '' && d.deliveryDays !== '' && d.qualityRating !== '';
+
+            const priceNum = Number(d.price);
+            const deliveryNum = Number(d.deliveryDays);
+            const qualityNum = Number(d.qualityRating);
+            const priceValid = d.price !== '' && priceNum > 0;
+            const deliveryValid = d.deliveryDays !== '' && Number.isInteger(deliveryNum) && deliveryNum >= 1;
+            const qualityValid = d.qualityRating !== '' && qualityNum >= 0 && qualityNum <= 5;
+            const valid = priceValid && deliveryValid && qualityValid;
+            const rowError = rowErrors[vid];
+
             return (
               <TableRow key={vid}>
                 <TableCell>
@@ -118,13 +141,56 @@ function QuotationsPanel({
                     {v?.name ?? vid}
                     {submitted && <Chip size="small" color="success" label="Submitted" />}
                   </Stack>
+                  {rowError && (
+                    <Typography variant="caption" sx={{ color: 'error.main', display: 'block', mt: 0.5 }}>
+                      {rowError}
+                    </Typography>
+                  )}
                 </TableCell>
-                <TableCell align="right"><TextField variant="standard" type="number" value={d.price} onChange={(e) => update(vid, 'price', e.target.value)} sx={{ width: 90 }} /></TableCell>
-                <TableCell align="right"><TextField variant="standard" type="number" value={d.deliveryDays} onChange={(e) => update(vid, 'deliveryDays', e.target.value)} sx={{ width: 90 }} /></TableCell>
-                <TableCell><TextField variant="standard" placeholder="Net 30" value={d.paymentTerms} onChange={(e) => update(vid, 'paymentTerms', e.target.value)} sx={{ width: 120 }} /></TableCell>
-                <TableCell align="right"><TextField variant="standard" type="number" value={d.qualityRating} onChange={(e) => update(vid, 'qualityRating', e.target.value)} sx={{ width: 80 }} /></TableCell>
                 <TableCell align="right">
-                  <Button size="small" variant="contained" disabled={!valid} onClick={() => onSubmit(vid, v?.name ?? vid, d)}>
+                  <TextField
+                    variant="standard"
+                    type="number"
+                    value={d.price}
+                    onChange={(e) => update(vid, 'price', e.target.value)}
+                    error={d.price !== '' && !priceValid}
+                    helperText={d.price !== '' && !priceValid ? 'Must be > 0' : undefined}
+                    sx={{ width: 90 }}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <TextField
+                    variant="standard"
+                    type="number"
+                    value={d.deliveryDays}
+                    onChange={(e) => update(vid, 'deliveryDays', e.target.value)}
+                    error={d.deliveryDays !== '' && !deliveryValid}
+                    helperText={d.deliveryDays !== '' && !deliveryValid ? 'Whole days, ≥ 1' : undefined}
+                    slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                    sx={{ width: 90 }}
+                  />
+                </TableCell>
+                <TableCell><TextField variant="standard" placeholder="Net 30" value={d.paymentTerms} onChange={(e) => update(vid, 'paymentTerms', e.target.value)} sx={{ width: 120 }} /></TableCell>
+                <TableCell align="right">
+                  <TextField
+                    variant="standard"
+                    type="number"
+                    value={d.qualityRating}
+                    onChange={(e) => update(vid, 'qualityRating', e.target.value)}
+                    error={d.qualityRating !== '' && !qualityValid}
+                    helperText={d.qualityRating !== '' && !qualityValid ? 'Must be 0–5' : undefined}
+                    slotProps={{ htmlInput: { min: 0, max: 5, step: 0.5 } }}
+                    sx={{ width: 80 }}
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <Button
+                    size="small"
+                    variant="contained"
+                    disabled={!valid || submittingVid === vid}
+                    loading={submittingVid === vid}
+                    onClick={() => submitRow(vid, v?.name ?? vid, d)}
+                  >
                     {submitted ? 'Update' : 'Submit'}
                   </Button>
                 </TableCell>
@@ -215,8 +281,8 @@ export default function RFQDetail() {
     </Alert>
   );
 
-  const handleSubmitQuote = (vendorId: string, vendorName: string, draft: QuoteDraft) => {
-    submitQuote(rfq.id, {
+  const handleSubmitQuote = async (vendorId: string, vendorName: string, draft: QuoteDraft) => {
+    await submitQuote(rfq.id, {
       vendorId,
       vendorName,
       price: Number(draft.price),
