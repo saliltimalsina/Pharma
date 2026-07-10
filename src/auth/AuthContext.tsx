@@ -17,8 +17,8 @@ interface AuthContextValue {
 const STORAGE_KEY = 'pharmaco_auth_user';
 
 export const DEMO_USER: AuthUser = {
-  name: 'Salil Timalsina',
-  email: 'salil.timalsina@gmail.com',
+  name: 'Admin',
+  email: 'admin@gmail.com',
 };
 
 const DEMO_PASSWORD = 'password123';

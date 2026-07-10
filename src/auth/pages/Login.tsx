@@ -10,7 +10,6 @@ import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import Link from '@mui/material/Link';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -159,15 +158,10 @@ function LoginContent() {
             }
           />
 
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <FormControlLabel
-              control={<Checkbox size="small" checked={remember} onChange={(e) => setRemember(e.target.checked)} />}
-              label={<Typography variant="body2">Remember me</Typography>}
-            />
-            <Link component="button" variant="body2" onClick={(e) => e.preventDefault()}>
-              Forgot password?
-            </Link>
-          </Stack>
+          <FormControlLabel
+            control={<Checkbox size="small" checked={remember} onChange={(e) => setRemember(e.target.checked)} />}
+            label={<Typography variant="body2">Remember me</Typography>}
+          />
 
           <Button variant="contained" size="large" fullWidth onClick={handleSubmit} disabled={submitting} loading={submitting}>
             Sign In
