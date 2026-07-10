@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Avatar from '@mui/material/Avatar';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
@@ -13,14 +13,17 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Link from '@mui/material/Link';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
-import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
+import CssBaseline from '@mui/material/CssBaseline';
 import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import { useAuth, DEMO_USER } from '../AuthContext';
+import AppTheme from '../../shared-theme/AppTheme';
+import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown';
+import FormField from '../../shared/components/FormField';
 
-export default function Login() {
+function LoginContent() {
   const navigate = useNavigate();
   const { isAuthenticated, login, loginDemo } = useAuth();
   const [email, setEmail] = useState(DEMO_USER.email);
@@ -66,29 +69,46 @@ export default function Login() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        bgcolor: (theme) => (theme.palette.mode === 'light' ? '#eef1f8' : 'background.default'),
         p: 2,
+        position: 'relative',
       }}
     >
-      <Card variant="outlined" sx={{ width: '100%', maxWidth: 440, p: { xs: 3, sm: 5 }, borderRadius: 3 }}>
+      <Box
+        sx={(theme) => ({
+          position: 'absolute',
+          inset: 0,
+          zIndex: 0,
+          backgroundImage:
+            theme.palette.mode === 'dark'
+              ? 'radial-gradient(ellipse 80% 60% at 50% -10%, hsl(210, 100%, 16%), transparent)'
+              : 'radial-gradient(ellipse 80% 60% at 50% -10%, hsl(210, 100%, 95%), transparent)',
+        })}
+      />
+      <Box sx={{ position: 'fixed', top: 16, right: 16, zIndex: 1 }}>
+        <ColorModeIconDropdown />
+      </Box>
+
+      <Card
+        variant="outlined"
+        sx={{ width: '100%', maxWidth: 440, p: { xs: 3, sm: 5 }, borderRadius: 3, zIndex: 1 }}
+      >
         <Stack sx={{ alignItems: 'center', mb: 3 }}>
-          <Box
+          <Avatar
+            variant="rounded"
             sx={{
-              width: 64,
-              height: 64,
-              borderRadius: 3,
+              width: 56,
+              height: 56,
               bgcolor: 'primary.main',
               color: 'primary.contrastText',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              fontWeight: 700,
+              fontSize: '1.75rem',
               mb: 2,
             }}
           >
-            <StorefrontRoundedIcon sx={{ fontSize: 34 }} />
-          </Box>
+            P
+          </Avatar>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            PharmaCo Admin
+            PharmaCo ERP
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
             Sign in to manage your business
@@ -102,51 +122,41 @@ export default function Login() {
         )}
 
         <Stack spacing={2}>
-          <TextField
+          <FormField
             label="Email"
             required
             fullWidth
             error={submitted && !email.trim()}
             helperText={submitted && !email.trim() ? 'Email is required' : undefined}
-            sx={{ '& .MuiInputLabel-asterisk': { color: 'error.main' } }}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <MailOutlineRoundedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                  </InputAdornment>
-                ),
-              },
-            }}
+            startAdornment={
+              <InputAdornment position="start">
+                <MailOutlineRoundedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            }
           />
-          <TextField
+          <FormField
             label="Password"
             required
             fullWidth
             error={submitted && !password.trim()}
             helperText={submitted && !password.trim() ? 'Password is required' : undefined}
-            sx={{ '& .MuiInputLabel-asterisk': { color: 'error.main' } }}
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setShowPassword((v) => !v)} edge="end">
-                      {showPassword ? <VisibilityOffRoundedIcon fontSize="small" /> : <VisibilityRoundedIcon fontSize="small" />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              },
-            }}
+            startAdornment={
+              <InputAdornment position="start">
+                <LockOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            }
+            endAdornment={
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setShowPassword((v) => !v)} edge="end">
+                  {showPassword ? <VisibilityOffRoundedIcon fontSize="small" /> : <VisibilityRoundedIcon fontSize="small" />}
+                </IconButton>
+              </InputAdornment>
+            }
           />
 
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -189,5 +199,14 @@ export default function Login() {
         </Stack>
       </Card>
     </Box>
+  );
+}
+
+export default function Login() {
+  return (
+    <AppTheme>
+      <CssBaseline enableColorScheme />
+      <LoginContent />
+    </AppTheme>
   );
 }
